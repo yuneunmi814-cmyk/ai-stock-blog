@@ -1,4 +1,5 @@
 # AI 섹터 저평가 종목 탐색기 — 분석 스크립트 의존성
-yfinance>=0.2.40      # Yahoo Finance(해외 + 국내 .KS/.KQ 시세/멀티플)
-requests>=2.31        # OpenDART REST API 호출
-pandas>=2.0           # 재무제표 가공
+yfinance>=0.2.40        # Yahoo Finance(해외 종목 시세/멀티플)
+finance-datareader>=0.9.50  # KRX 공식 국내 시가총액
+requests>=2.31          # OpenDART REST API 호출
+pandas>=2.0             # 재무제표 가공

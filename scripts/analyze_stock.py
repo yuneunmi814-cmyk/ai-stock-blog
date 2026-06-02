@@ -245,12 +245,41 @@ def _ttm(cur_row: Optional[dict], prior_full_row: Optional[dict],
     return cur + prior_full - prior_q
 
 
-def fetch_dart(name: str, ticker: str, section: str, corp_code: str = "") -> Stock:
-    """DART 공시 최신 분기 보고서 기반 펀더멘털 + Yahoo 시장가로 멀티플 산출.
+# KRX 시가총액 캐시(StockListing은 전 종목을 한 번에 반환하므로 1회만 호출)
+_KRX_CAP: dict[str, float] = {}
+_KRX_LOADED = False
 
-    - 손익 항목(당기순이익·영업이익·감가상각비)은 TTM(최근 4분기)으로 환산
+
+def _krx_market_cap(code6: str) -> Optional[float]:
+    """KRX 공식 시가총액(원). FinanceDataReader 사용. 실패 시 None → Yahoo 폴백."""
+    global _KRX_LOADED
+    if not _KRX_LOADED:
+        _KRX_LOADED = True
+        # Python 프레임워크 빌드의 SSL 인증서 누락 대비(요청 라이브러리 외 urllib 사용)
+        if not os.environ.get("SSL_CERT_FILE"):
+            try:
+                import certifi
+                os.environ["SSL_CERT_FILE"] = certifi.where()
+            except Exception:  # noqa: BLE001
+                pass
+        try:
+            import FinanceDataReader as fdr
+            df = fdr.StockListing("KRX")
+            col = next((c for c in ("Marcap", "MarCap", "시가총액") if c in df.columns), None)
+            if col:
+                for code, cap in zip(df["Code"], df[col]):
+                    _KRX_CAP[str(code)] = float(cap)
+        except Exception as e:  # noqa: BLE001
+            print(f"  [warn] KRX 시총 로드 실패({e}) → Yahoo 폴백", file=sys.stderr)
+    return _KRX_CAP.get(code6)
+
+
+def fetch_dart(name: str, ticker: str, section: str, corp_code: str = "") -> Stock:
+    """DART 공시 최신 분기 보고서 기반 펀더멘털 + KRX 시가총액으로 멀티플 산출.
+
+    - 손익 항목(당기순이익·영업이익)은 TTM(최근 4분기)으로 환산
     - 재무상태 항목(자본총계·부채총계·현금)은 분기말 시점값 사용
-    - 시가총액은 Yahoo(.KS 시세)에서 취득
+    - 시가총액은 KRX(FinanceDataReader) 우선, 실패 시 Yahoo 폴백
     환경변수 DART_API_KEY 또는 corp_code 부재 시 Yahoo 폴백.
     """
     base = fetch_yahoo(name, ticker, section)  # 시장가 + 결측 폴백용
@@ -259,12 +288,15 @@ def fetch_dart(name: str, ticker: str, section: str, corp_code: str = "") -> Sto
         base.source = "dart(폴백:yahoo)"
         return base
 
-    # 시가총액(원) — DART는 시세를 제공하지 않으므로 Yahoo raw 값 사용
-    try:
-        import yfinance as yf
-        mcap = yf.Ticker(ticker).info.get("marketCap")
-    except Exception:  # noqa: BLE001
-        mcap = None
+    # 시가총액(원) — DART는 시세 미제공. KRX 공식값 우선, 실패 시 Yahoo 폴백.
+    code6 = ticker.split(".")[0]
+    mcap = _krx_market_cap(code6)
+    if mcap is None:
+        try:
+            import yfinance as yf
+            mcap = yf.Ticker(ticker).info.get("marketCap")
+        except Exception:  # noqa: BLE001
+            mcap = None
 
     # 최신 분기 보고서 탐색: 올해 → 작년, 3Q → 반기 → 1Q
     cur_year = int(datetime.now(KST).strftime("%Y"))
@@ -511,8 +543,8 @@ def build_markdown(stocks: list[Stock], top3: list[Stock], as_of: str, mode: str
     out.append("> ⚠️ **면책 고지** — 본 리포트는 재무제표 기반의 정량적 분석 자료이며, "
                "실제 투자 결과에 대한 책임은 투자자 본인에게 있습니다.")
     out.append("")
-    out.append(f"<sub>📊 데이터 기준일: {as_of} · 지표는 DART 공시 최신 분기 보고서 데이터를 우선 적용 "
-               f"(해외 종목은 Yahoo Finance) · 생성 모드: `{mode}`</sub>")
+    out.append(f"<sub>📊 데이터 기준일: {as_of} · 국내 종목은 DART 공시 최신 분기 보고서 + KRX 시가총액 기준, "
+               f"해외 종목은 Yahoo Finance · 생성 모드: `{mode}`</sub>")
     out.append("")
 
     # --- 오늘의 AI 저평가 Top 3 요약 박스(Table) ---
@@ -591,7 +623,7 @@ def build_markdown(stocks: list[Stock], top3: list[Stock], as_of: str, mode: str
     out.append("3. **ROIC가 높고(수익성 우수), PEG가 1 미만(성장 대비 저평가)** 인 종목에 가점.")
     out.append("4. `종합점수 = 멀티플 할인폭 + 0.35·ROIC가점 + 0.50·PEG가점` 상위 3종목을 Top 3로 선정.")
     out.append("")
-    out.append("> 국내 종목은 DART 공시 최신 분기 보고서 데이터를 우선 적용하며, 해외 종목은 Yahoo Finance를 사용합니다.")
+    out.append("> 국내 종목은 DART 공시 최신 분기 보고서(펀더멘털) + KRX 시가총액을 적용하며, 해외 종목은 Yahoo Finance를 사용합니다.")
     out.append("</details>")
     out.append("")
     return "\n".join(out)
