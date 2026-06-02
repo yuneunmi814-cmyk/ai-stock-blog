@@ -1,0 +1,37 @@
+title: AI 섹터 저평가 종목 탐색기
+description: 매일 07:00 KST, 4개 AI 섹션의 시장 동향과 '가치 대비 저평가된 AI 종목 Top 3'를 정량 분석으로 선별합니다.
+author: yoon
+lang: ko-KR
+timezone: Asia/Seoul
+
+# 사이트 URL (GitHub Pages 사용자/조직 페이지 또는 프로젝트 페이지에 맞게 수정)
+url: ""
+baseurl: ""
+
+markdown: kramdown
+theme: minima
+
+# minima 테마 옵션
+minima:
+  date_format: "%Y-%m-%d"
+  nav_pages:
+    - index.md
+
+permalink: /:year/:month/:day/:title/
+paginate: 10
+
+defaults:
+  - scope:
+      path: ""
+      type: posts
+    values:
+      layout: post
+
+exclude:
+  - scripts/
+  - data/
+  - requirements.txt
+  - README.md
+  - .github/
+  - Gemfile
+  - Gemfile.lock
