@@ -4,9 +4,9 @@ author: yoon
 lang: ko-KR
 timezone: Asia/Seoul
 
-# 사이트 URL (GitHub Pages 사용자/조직 페이지 또는 프로젝트 페이지에 맞게 수정)
-url: ""
-baseurl: ""
+# 사이트 URL — 프로젝트 페이지(projectyoon.github.io/ai-stock-blog)
+url: "https://projectyoon.github.io"
+baseurl: "/ai-stock-blog"
 
 markdown: kramdown
 theme: minima
