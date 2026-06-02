@@ -3,6 +3,7 @@ defaultContentLanguage = "ko"
 title = "AI 섹터 저평가 종목 탐색기"
 timeZone = "Asia/Seoul"
 enableRobotsTXT = true
+buildFuture = true  # 07:00 예약시각 이전(새벽) 빌드에도 당일 리포트 포함
 # 외부 테마 없이 자체 layouts/ 사용
 
 [pagination]
