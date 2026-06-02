@@ -49,6 +49,7 @@ UNIVERSE: dict[str, list[dict]] = {
         {"name": "TSMC", "ticker": "TSM", "source": "yahoo"},
         {"name": "삼성전자", "ticker": "005930.KS", "source": "dart", "corp_code": "00126380"},
         {"name": "SK하이닉스", "ticker": "000660.KS", "source": "dart", "corp_code": "00164779"},
+        {"name": "한미반도체", "ticker": "042700.KS", "source": "dart", "corp_code": "00161383"},
         {"name": "브로드컴", "ticker": "AVGO", "source": "yahoo"},
         {"name": "마이크론", "ticker": "MU", "source": "yahoo"},
         {"name": "ASML", "ticker": "ASML", "source": "yahoo"},
@@ -69,6 +70,7 @@ UNIVERSE: dict[str, list[dict]] = {
         {"name": "카카오", "ticker": "035720.KS", "source": "dart", "corp_code": "00258801"},
         {"name": "스노우플레이크", "ticker": "SNOW", "source": "yahoo"},
         {"name": "SAP", "ticker": "SAP", "source": "yahoo"},
+        {"name": "IBM", "ticker": "IBM", "source": "yahoo"},
     ],
     "AI 애플리케이션": [
         {"name": "어도비", "ticker": "ADBE", "source": "yahoo"},
@@ -77,6 +79,8 @@ UNIVERSE: dict[str, list[dict]] = {
         {"name": "듀오링고", "ticker": "DUOL", "source": "yahoo"},
         {"name": "더존비즈온", "ticker": "012510.KS", "source": "dart", "corp_code": "00172291"},
         {"name": "테슬라", "ticker": "TSLA", "source": "yahoo"},
+        {"name": "크라우드스트라이크", "ticker": "CRWD", "source": "yahoo"},
+        {"name": "인튜이티브서지컬", "ticker": "ISRG", "source": "yahoo"},
     ],
 }
 
