@@ -75,7 +75,7 @@ UNIVERSE: dict[str, list[dict]] = {
         {"name": "세일즈포스", "ticker": "CRM", "source": "yahoo"},
         {"name": "서비스나우", "ticker": "NOW", "source": "yahoo"},
         {"name": "듀오링고", "ticker": "DUOL", "source": "yahoo"},
-        {"name": "더존비즈온", "ticker": "012510.KS", "source": "dart", "corp_code": "00521542"},
+        {"name": "더존비즈온", "ticker": "012510.KS", "source": "dart", "corp_code": "00172291"},
         {"name": "테슬라", "ticker": "TSLA", "source": "yahoo"},
     ],
 }
@@ -198,8 +198,9 @@ def _dart_statements(api_key: str, corp_code: str, year: int, reprt_code: str) -
                 {
                     "sj": it.get("sj_div"),
                     "nm": (it.get("account_nm") or "").replace(" ", ""),
-                    "th": _to_num(it.get("thstrm_amount")),
-                    "fr": _to_num(it.get("frmtrm_amount")),
+                    "th": _to_num(it.get("thstrm_amount")),       # 당기(분기 단독 or 연간)
+                    "add": _to_num(it.get("thstrm_add_amount")),  # 당기 누계(YTD)
+                    "fr": _to_num(it.get("frmtrm_amount")),       # 전기(연간 보고서에만 존재)
                 }
                 for it in data.get("list", [])
             ]
@@ -217,15 +218,27 @@ def _pick(rows: list[dict], sj: str, *keywords: str) -> Optional[dict]:
     return None
 
 
-def _ttm(cur: Optional[dict], prior_annual: Optional[dict]) -> Optional[float]:
-    """TTM = 전년연간 - 전년동기누계 + 당기누계. 보정 불가 시 당기누계 그대로."""
-    if not cur or cur["th"] is None:
+def _cum(row: Optional[dict]) -> Optional[float]:
+    """손익/현금흐름 항목의 당기 누계(YTD). 분기 보고서는 add(누계), 연간은 th."""
+    if not row:
         return None
-    cur_ytd, prior_ytd = cur["th"], cur["fr"]
-    pa = prior_annual["th"] if prior_annual else None
-    if pa is not None and prior_ytd is not None:
-        return pa - prior_ytd + cur_ytd
-    return cur_ytd
+    return row["add"] if row["add"] is not None else row["th"]
+
+
+def _ttm(cur_row: Optional[dict], prior_full_row: Optional[dict],
+         prior_same_q_row: Optional[dict]) -> Optional[float]:
+    """TTM(최근 4개 분기 합) = 당기누계 + 전년연간 - 전년동기누계.
+
+    fnlttSinglAcntAll 분기 응답은 전년동기(frmtrm)를 주지 않으므로
+    전년 동일 분기 보고서를 별도 조회해 prior_same_q_row 로 받는다.
+    세 값이 모두 있어야 신뢰 가능 → 하나라도 없으면 None(Yahoo 폴백).
+    """
+    cur = _cum(cur_row)
+    prior_full = prior_full_row["th"] if prior_full_row else None
+    prior_q = _cum(prior_same_q_row)
+    if cur is None or prior_full is None or prior_q is None:
+        return None
+    return cur + prior_full - prior_q
 
 
 def fetch_dart(name: str, ticker: str, section: str, corp_code: str = "") -> Stock:
@@ -251,12 +264,12 @@ def fetch_dart(name: str, ticker: str, section: str, corp_code: str = "") -> Sto
 
     # 최신 분기 보고서 탐색: 올해 → 작년, 3Q → 반기 → 1Q
     cur_year = int(datetime.now(KST).strftime("%Y"))
-    rows, used_year = [], None
+    rows, used_year, used_reprt = [], None, None
     for y in (cur_year, cur_year - 1):
         for rc in REPRT_QUARTERLY:
             rows = _dart_statements(api_key, corp_code, y, rc)
             if rows:
-                used_year = y
+                used_year, used_reprt = y, rc
                 break
         if rows:
             break
@@ -264,7 +277,7 @@ def fetch_dart(name: str, ticker: str, section: str, corp_code: str = "") -> Sto
         base.source = "dart(폴백:yahoo)"
         return base
 
-    # 재무상태(시점값)
+    # 재무상태(시점값) — 분기말 잔액 그대로
     equity = _pick(rows, "BS", "자본총계")
     liab = _pick(rows, "BS", "부채총계")
     cash = _pick(rows, "BS", "현금및현금성자산", "현금과현금성자산")
@@ -272,49 +285,49 @@ def fetch_dart(name: str, ticker: str, section: str, corp_code: str = "") -> Sto
     total_liab = liab["th"] if liab else None
     cash_amt = (cash["th"] if cash and cash["th"] is not None else 0.0)
 
-    # 손익/현금흐름(TTM 환산: 전년 연간 보고서로 보정)
+    # 손익 TTM 환산: 전년 연간(11011) + 전년 동일분기 보고서로 보정
     prior_annual = _dart_statements(api_key, corp_code, used_year - 1, REPRT_ANNUAL)
-    ni_row = _pick(rows, "IS", "당기순이익") or _pick(rows, "CIS", "당기순이익")
-    op_row = _pick(rows, "IS", "영업이익") or _pick(rows, "CIS", "영업이익")
-    dep_row = _pick(rows, "CF", "감가상각비")
-    amort_row = _pick(rows, "CF", "무형자산상각")
-    ni_ttm = _ttm(ni_row, _pick(prior_annual, "IS", "당기순이익") or _pick(prior_annual, "CIS", "당기순이익"))
-    op_ttm = _ttm(op_row, _pick(prior_annual, "IS", "영업이익") or _pick(prior_annual, "CIS", "영업이익"))
-    dep_ttm = _ttm(dep_row, _pick(prior_annual, "CF", "감가상각비")) or 0.0
-    amort_ttm = _ttm(amort_row, _pick(prior_annual, "CF", "무형자산상각")) or 0.0
+    prior_q = _dart_statements(api_key, corp_code, used_year - 1, used_reprt)
 
-    # 이익성장률(YoY 누계 기준) → PEG용
+    def ttm_of(*keys: str, sj_primary: str = "IS") -> Optional[float]:
+        cur = _pick(rows, sj_primary, *keys) or _pick(rows, "CIS", *keys)
+        pf = _pick(prior_annual, sj_primary, *keys) or _pick(prior_annual, "CIS", *keys)
+        pq = _pick(prior_q, sj_primary, *keys) or _pick(prior_q, "CIS", *keys)
+        return _ttm(cur, pf, pq)
+
+    # 순이익 계정명은 보고서별로 다름: 분기/반기/당기순이익 (연간=당기순이익)
+    ni_keys = ("당기순이익", "분기순이익", "반기순이익")
+    ni_ttm = ttm_of(*ni_keys)
+    op_ttm = ttm_of("영업이익")
+
+    # 이익성장률(TTM vs 전년연간) → PEG용
     ni_growth = None
-    if ni_row and ni_row["fr"] and ni_row["fr"] > 0 and ni_row["th"] is not None:
-        ni_growth = (ni_row["th"] / ni_row["fr"] - 1) * 100
+    prior_ni = _pick(prior_annual, "IS", *ni_keys) or _pick(prior_annual, "CIS", *ni_keys)
+    if ni_ttm and prior_ni and prior_ni["th"] and prior_ni["th"] > 0:
+        ni_growth = (ni_ttm / prior_ni["th"] - 1) * 100
 
     # --- 멀티플 산출 ---
+    # PER·PBR·ROIC·PEG 는 DART 기준, EV/EBITDA 는 감가상각이 요약 재무제표에
+    # 누락되는 경우가 많아 Yahoo(enterpriseToEbitda)를 사용한다.
     per = (mcap / ni_ttm) if (mcap and ni_ttm and ni_ttm > 0) else None
     pbr = (mcap / total_equity) if (mcap and total_equity and total_equity > 0) else None
-    ev_ebitda = None
-    if op_ttm is not None:
-        ebitda = op_ttm + dep_ttm + amort_ttm
-        if mcap and ebitda and ebitda > 0 and total_liab is not None:
-            ev = mcap + total_liab - cash_amt
-            ev_ebitda = ev / ebitda
     roic = None
     if op_ttm is not None and total_equity and total_liab is not None:
-        invested = total_equity + total_liab - cash_amt
+        invested = total_equity + total_liab - cash_amt  # 투하자본 근사
         if invested > 0:
             roic = op_ttm * (1 - KR_TAX_RATE) / invested * 100
     peg = (per / ni_growth) if (per and ni_growth and ni_growth > 0) else None
 
-    # DART 산출값으로 덮어쓰되, 원시 재무제표 파생값의 비현실적 이상치는
-    # Yahoo 값을 유지(폴백)한다. 범위를 벗어나면 통계 신뢰도가 낮다고 판단.
+    # DART 산출값으로 덮어쓰되, 비현실적 이상치는 Yahoo 값 유지(폴백)
     def put(field: str, val: Optional[float], lo: float, hi: float) -> None:
         if val is not None and lo < val < hi:
             setattr(base, field, round(val, 3))
 
     put("per", per, 0, 300)
     put("pbr", pbr, 0, 30)
-    put("ev_ebitda", ev_ebitda, 0, 40)   # 부채/감가상각 근사 오차가 큰 구간 차단
     put("roic", roic, -60, 90)
-    put("peg", peg, 0, 5)                 # 단일분기 YoY 급변치 차단
+    put("peg", peg, 0, 5)
+    # ev_ebitda 는 base(Yahoo) 값을 그대로 사용
     if mcap:
         base.market_cap = round(mcap / 1e12, 1)  # 조 원
     base.currency = "KRW"
@@ -353,6 +366,25 @@ def collect_live() -> tuple[list[Stock], str]:
 # ---------------------------------------------------------------------------
 # 저평가 필터링 / 스코어링
 # ---------------------------------------------------------------------------
+# 지표별 현실적 범위. 벗어나면 데이터 오류로 보고 None 처리(소스 무관).
+PLAUSIBLE = {
+    "per": (0, 300),
+    "pbr": (0, 50),
+    "ev_ebitda": (0, 100),
+    "roic": (-100, 150),
+    "peg": (0, 5),
+}
+
+
+def sanitize(stocks: list[Stock]) -> None:
+    """DART/Yahoo 공통: 비현실적 지표값을 None으로 정리해 통계 왜곡을 막는다."""
+    for s in stocks:
+        for m, (lo, hi) in PLAUSIBLE.items():
+            v = getattr(s, m)
+            if v is not None and not (lo < v < hi):
+                setattr(s, m, None)
+
+
 def section_peer_avg(stocks: list[Stock], metric: str) -> Optional[float]:
     """동종업계 절사평균(trimmed mean).
 
@@ -583,6 +615,7 @@ def main() -> int:
     if args.date:
         as_of = args.date
 
+    sanitize(stocks)
     score(stocks)
     top3 = pick_top3(stocks)
     if len(top3) < 3:
