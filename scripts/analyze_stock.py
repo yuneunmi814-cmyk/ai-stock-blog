@@ -32,6 +32,7 @@ from typing import Optional
 ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_PATH = ROOT / "data" / "sample_data.json"
 POSTS_DIR = ROOT / "content" / "posts"   # Hugo 콘텐츠 디렉터리
+LATEST_PATH = ROOT / "static" / "data" / "latest.json"  # 메인 대시보드용
 KST = timezone(timedelta(hours=9))
 
 SECTION_ORDER = [
@@ -766,6 +767,39 @@ def pick_top3(stocks: list[Stock]) -> list[Stock]:
     return cands[:3]
 
 
+def build_dashboard(stocks: list[Stock], top3: list[Stock], as_of: str,
+                    news: Optional[dict]) -> dict:
+    """메인 대시보드(검색·차트·추천여부·뉴스)용 JSON 데이터."""
+    ranks = {t.name: i + 1 for i, t in enumerate(top3)}
+    out: dict[str, dict] = {}
+    for s in stocks:
+        rank = ranks.get(s.name)
+        if rank:
+            level, verdict = "buy", "추천"
+            reasons = [f"섹터 가중 종합점수 상위 — 오늘의 Top {rank}"]
+        elif s.is_candidate:
+            level, verdict = "watch", "관심(후보군)"
+            reasons = ["동종평균 대비 멀티플이 낮은 1차 후보군"]
+        else:
+            level, verdict = "neutral", "중립"
+            reasons = ["동종평균 대비 가격 매력이 제한적"]
+        if s.safety_flags:
+            reasons.append("안전마진: " + ", ".join(s.safety_flags))
+        prof = sector_profile(s.section)
+        out[s.name] = {
+            "ticker": s.ticker, "section": s.section, "profile": prof,
+            "lens": "유형자산(PBR·EV/EBITDA) 중심" if prof == "hardware"
+                    else "자본효율·성장성(ROIC·PEG) 중심",
+            "level": level, "verdict": verdict, "rank": rank,
+            "per": s.per, "pbr": s.pbr, "ev_ebitda": s.ev_ebitda,
+            "roic": s.roic, "peg": s.peg,
+            "reasons": reasons, "safety": s.safety_flags,
+            "history": s.history, "supply": s.supply, "lastClose": s.last_close,
+        }
+    return {"as_of": as_of, "top3": [t.name for t in top3],
+            "stocks": out, "news": news or {}}
+
+
 # ---------------------------------------------------------------------------
 # 리포트 생성
 # ---------------------------------------------------------------------------
@@ -1015,6 +1049,12 @@ def main() -> int:
         news = {sec: fetch_news(q) for sec, q in SECTION_NEWS_QUERY.items()}
 
     md = build_markdown(stocks, top3, as_of, args.mode, news)
+
+    # 메인 대시보드 데이터
+    LATEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    LATEST_PATH.write_text(
+        json.dumps(build_dashboard(stocks, top3, as_of, news), ensure_ascii=False),
+        encoding="utf-8")
 
     if args.stdout:
         print(md)

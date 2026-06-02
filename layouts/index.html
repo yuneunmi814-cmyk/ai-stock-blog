@@ -4,6 +4,42 @@
   4개 섹션의 시장 동향과 <strong>가치 대비 저평가된 AI 종목 Top 3</strong>를 정량 분석으로 선별합니다.</p>
 </section>
 
+<section class="dashboard">
+  <h2>종목 분석 검색</h2>
+  <p class="dash-asof"></p>
+  <div class="search-row">
+    <input id="stock-search" list="stock-list" placeholder="종목명 또는 티커 (예: 삼성전자, NVDA)" autocomplete="off">
+    <datalist id="stock-list"></datalist>
+    <button id="stock-go">검색</button>
+  </div>
+
+  <article id="stock-detail" hidden>
+    <div class="detail-head">
+      <h3 id="d-name"></h3>
+      <span id="d-verdict" class="verdict"></span>
+    </div>
+    <p id="d-sub" class="d-sub"></p>
+    <p id="d-close" class="last-close"></p>
+    <ul id="d-reasons" class="reasons"></ul>
+
+    <table id="d-metrics" class="metrics-table"></table>
+    <p class="metric-note">★ 표시는 해당 섹터에서 가중치를 높게 보는 지표입니다.</p>
+
+    <div class="chart-box"><canvas id="d-price"></canvas></div>
+
+    <div id="d-supply-wrap">
+      <h4>수급 현황 <small id="d-hold"></small></h4>
+      <div class="chart-box chart-box-sm"><canvas id="d-supplychart"></canvas></div>
+    </div>
+    <p id="d-supply-none" class="chart-note" hidden>해외 종목은 투자자별 수급 데이터를 제공하지 않습니다.</p>
+
+    <div id="d-news">
+      <h4>관련 기사</h4>
+      <ol id="d-news-list" class="news-list"></ol>
+    </div>
+  </article>
+</section>
+
 <h2>일일 리포트</h2>
 <ul class="post-list">
   {{ range (where .Site.RegularPages "Section" "posts").ByDate.Reverse }}
@@ -13,4 +49,137 @@
   </li>
   {{ end }}
 </ul>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+fetch("{{ "data/latest.json" | relURL }}").then(function (r) { return r.json(); })
+  .then(initDash).catch(function () {});
+
+function initDash(data) {
+  var S = data.stocks, names = Object.keys(S);
+  document.querySelector(".dash-asof").textContent =
+    "기준일 " + data.as_of + " · 추천 여부는 섹터 가중 점수 기반의 정량 분석이며 투자 권유가 아닙니다.";
+  var dl = document.getElementById("stock-list");
+  names.forEach(function (n) {
+    var o = document.createElement("option");
+    o.value = n; o.label = S[n].ticker; dl.appendChild(o);
+  });
+
+  var input = document.getElementById("stock-search");
+  var priceChart, supplyChart;
+
+  function showClose(lc) {
+    var el = document.getElementById("d-close");
+    if (!lc) { el.textContent = ""; return; }
+    var unit = lc.cur === "KRW" ? "원" : (" " + (lc.cur || ""));
+    var price = lc.cur === "KRW" ? Math.round(lc.price).toLocaleString() : lc.price.toLocaleString();
+    var arrow = lc.dir === "up" ? "▲" : (lc.dir === "down" ? "▼" : "—");
+    var sign = lc.pct > 0 ? "+" : "";
+    el.innerHTML = "전일 종가 <b>" + price + unit + "</b> " +
+      '<span class="chg ' + lc.dir + '">' + arrow + " " + sign + lc.pct + "%</span>" +
+      (lc.date ? ' <span class="cdate">(' + lc.date + " 기준)</span>" : "");
+  }
+
+  function renderMetrics(s) {
+    var pri = s.profile === "hardware" ? ["pbr", "ev_ebitda"] : ["roic", "peg"];
+    var defs = [["per", "PER"], ["pbr", "PBR"], ["ev_ebitda", "EV/EBITDA"], ["roic", "ROIC"], ["peg", "PEG"]];
+    var h = "<tr>";
+    defs.forEach(function (d) {
+      var star = pri.indexOf(d[0]) >= 0 ? " ★" : "";
+      h += '<th><span class="term" data-term="' + d[0] + '">' + d[1] + "</span>" + star + "</th>";
+    });
+    h += "</tr><tr>";
+    defs.forEach(function (d) {
+      var v = s[d[0]], suf = d[0] === "roic" ? "%" : "";
+      h += "<td>" + (v == null ? "—" : v + suf) + "</td>";
+    });
+    document.getElementById("d-metrics").innerHTML = h + "</tr>";
+  }
+
+  function drawPrice(s) {
+    if (priceChart) priceChart.destroy();
+    if (!s.history) return;
+    priceChart = new Chart(document.getElementById("d-price"), {
+      type: "line",
+      data: { labels: s.history.dates, datasets: [{
+        label: "종가", data: s.history.closes, borderColor: "#2563eb",
+        backgroundColor: "rgba(37,99,235,.10)", fill: true, tension: .25, pointRadius: 0, borderWidth: 2 }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { ticks: { maxTicksLimit: 8 } }, y: { ticks: { callback: function (v) { return v.toLocaleString(); } } } } }
+    });
+  }
+
+  function drawSupply(sp) {
+    var wrap = document.getElementById("d-supply-wrap"), none = document.getElementById("d-supply-none");
+    if (supplyChart) { supplyChart.destroy(); supplyChart = null; }
+    if (!sp) { wrap.style.display = "none"; none.hidden = false; return; }
+    wrap.style.display = "block"; none.hidden = true;
+    document.getElementById("d-hold").textContent = sp.foreignHold ? "(외국인 보유 " + sp.foreignHold + ")" : "";
+    supplyChart = new Chart(document.getElementById("d-supplychart"), {
+      type: "bar",
+      data: { labels: sp.dates, datasets: [
+        { label: "외국인", data: sp.foreign, backgroundColor: "#2563eb" },
+        { label: "기관", data: sp.organ, backgroundColor: "#16a34a" },
+        { label: "개인", data: sp.individual, backgroundColor: "#f59e0b" }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: "top" } },
+        scales: { y: { ticks: { callback: function (v) { return v.toLocaleString(); } } } } }
+    });
+  }
+
+  function renderNews(items) {
+    var ol = document.getElementById("d-news-list");
+    ol.innerHTML = "";
+    (items || []).slice(0, 3).forEach(function (it) {
+      var li = document.createElement("li");
+      var meta = [it.source, it.date].filter(Boolean).join(" · ");
+      if (it.link && it.link !== "#") {
+        var a = document.createElement("a");
+        a.href = it.link; a.target = "_blank"; a.rel = "noopener"; a.textContent = it.title;
+        li.appendChild(a);
+      } else { li.textContent = it.title; }
+      if (meta) { var sm = document.createElement("span"); sm.className = "news-meta"; sm.textContent = " — " + meta; li.appendChild(sm); }
+      ol.appendChild(li);
+    });
+    document.getElementById("d-news").style.display = (items && items.length) ? "block" : "none";
+  }
+
+  function show(name) {
+    var s = S[name]; if (!s) return;
+    document.getElementById("stock-detail").hidden = false;
+    document.getElementById("d-name").textContent = name + " (" + s.ticker + ")";
+    var v = document.getElementById("d-verdict");
+    v.textContent = s.verdict; v.className = "verdict " + s.level;
+    document.getElementById("d-sub").textContent = s.section + " · " + s.lens;
+    showClose(s.lastClose);
+    var ul = document.getElementById("d-reasons"); ul.innerHTML = "";
+    s.reasons.forEach(function (r) { var li = document.createElement("li"); li.textContent = r; ul.appendChild(li); });
+    renderMetrics(s);
+    drawPrice(s);
+    drawSupply(s.supply);
+    renderNews(data.news[s.section]);
+    input.value = name;
+    try { history.replaceState(null, "", "#" + encodeURIComponent(name)); } catch (e) {}
+  }
+
+  function resolve(q) {
+    if (!q) return;
+    if (S[q]) return show(q);
+    var lo = q.toLowerCase();
+    var t = names.find(function (n) { return S[n].ticker.toLowerCase() === lo || S[n].ticker.toLowerCase().split(".")[0] === lo; });
+    if (t) return show(t);
+    var p = names.find(function (n) { return n.indexOf(q) >= 0; });
+    if (p) show(p);
+  }
+
+  input.addEventListener("change", function () { resolve(input.value); });
+  document.getElementById("stock-go").addEventListener("click", function () { resolve(input.value); });
+  input.addEventListener("keydown", function (e) { if (e.key === "Enter") resolve(input.value); });
+
+  var hash = location.hash ? decodeURIComponent(location.hash.slice(1)) : "";
+  if (S[hash]) show(hash);
+  else if (data.top3 && data.top3.length) show(data.top3[0]);
+}
+</script>
 {{ end }}

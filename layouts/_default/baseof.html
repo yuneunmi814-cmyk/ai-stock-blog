@@ -9,7 +9,7 @@
 </head>
 <body>
   <header class="site-header">
-    <a class="site-title" href="{{ "/" | relURL }}">{{ .Site.Title }}</a>
+    <a class="site-title" href="{{ site.Home.RelPermalink }}">{{ .Site.Title }}</a>
     <p class="site-tagline">{{ .Site.Params.description }}</p>
   </header>
   <main class="container">

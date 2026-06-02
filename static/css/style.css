@@ -55,6 +55,29 @@ hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
                max-width: 880px; margin: 0 auto; padding: 24px 20px 48px; }
 .back { margin-top: 32px; }
 
+/* 메인 대시보드 */
+.dashboard { border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin: 28px 0; }
+.dash-asof { color: #9ca3af; font-size: .82rem; margin: -4px 0 14px; }
+.search-row { display: flex; gap: 8px; flex-wrap: wrap; }
+#stock-search { flex: 1; min-width: 220px; font-size: 1rem; padding: 9px 12px;
+                border: 1px solid var(--border); border-radius: 8px; }
+#stock-go { font-size: 1rem; padding: 9px 18px; border: none; border-radius: 8px;
+            background: var(--accent); color: #fff; cursor: pointer; }
+#stock-detail { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 18px; }
+.detail-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.detail-head h3 { margin: 0; }
+.d-sub { color: #6b7280; margin: 6px 0 0; }
+.verdict { font-weight: 700; font-size: .85rem; padding: 3px 12px; border-radius: 999px; }
+.verdict.buy { background: #dcfce7; color: #15803d; }
+.verdict.watch { background: #fef9c3; color: #a16207; }
+.verdict.neutral { background: #f1f5f9; color: #475569; }
+.reasons { margin: 12px 0; padding-left: 20px; color: #374151; }
+.metrics-table { width: auto; }
+.metrics-table th, .metrics-table td { text-align: center; padding: 8px 14px; }
+.metric-note { color: #9ca3af; font-size: .78rem; margin: 4px 0 0; }
+.news-list a { font-weight: 600; }
+.news-meta { color: #9ca3af; font-size: .82rem; }
+
 /* 차트 위젯 */
 .chart-widget { background: var(--bg-soft); border: 1px solid var(--border);
                 border-radius: 12px; padding: 16px 20px; margin: 24px 0; }
