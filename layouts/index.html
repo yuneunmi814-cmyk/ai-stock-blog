@@ -90,6 +90,11 @@
       ["목표주가", price(s.target) + upside],
       ["투자의견", s.recommMean == null ? "—" : s.recommMean + " (1매수~5매도)"]
     ];
+    if (s.benchPER != null) {
+      var lbl = (s.basis && s.basis.indexOf("업종") >= 0) ? "업종" : "시장";
+      rows.push([lbl + " 평균 PER", s.benchPER + "배"]);
+      rows.push([lbl + " 평균 PBR", s.benchPBR + "배"]);
+    }
     document.getElementById("d-quote").innerHTML = rows.map(function (r) {
       return '<div class="q-item"><span class="q-k">' + r[0] + '</span><span class="q-v">' + r[1] + "</span></div>";
     }).join("");
@@ -169,7 +174,8 @@
     document.getElementById("d-name").textContent = name + " (" + s.ticker + ")";
     var v = document.getElementById("d-verdict");
     v.textContent = s.verdict; v.className = "verdict " + s.level;
-    document.getElementById("d-sub").textContent = s.section + " · " + (s.lens || "기본 평가(섹터 가중 적용 전)");
+    document.getElementById("d-sub").textContent =
+      (s.industry ? "업종: " + s.industry : s.section) + " · " + (s.lens || "업종 평균 대비 평가");
     showClose(s.lastClose);
     var ul = document.getElementById("d-reasons"); ul.innerHTML = "";
     s.reasons.forEach(function (r) { var li = document.createElement("li"); li.textContent = r; ul.appendChild(li); });

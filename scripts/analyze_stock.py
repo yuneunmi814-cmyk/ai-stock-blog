@@ -129,6 +129,7 @@ class Stock:
     recomm_mean: Optional[float] = None     # 투자의견 평균(1매수~5매도)
     volume: Optional[float] = None          # 거래량
     ai_universe: bool = True                # AI 4개 섹션 분석 대상 여부
+    industry: Optional[str] = None          # KRX/KSIC 업종(FDR KRX-DESC)
 
     def metric(self, key: str) -> Optional[float]:
         return getattr(self, key)
@@ -234,6 +235,32 @@ def fetch_quote(stock: Stock) -> None:
         print(f"  [warn] {stock.name} 시세지표 수집 실패: {e}", file=sys.stderr)
 
 
+_INDUSTRY: dict[str, str] = {}
+_INDUSTRY_LOADED = False
+
+
+def _load_industry() -> None:
+    """FDR KRX-DESC에서 종목코드→업종(KSIC) 매핑을 1회 적재."""
+    global _INDUSTRY_LOADED
+    if _INDUSTRY_LOADED:
+        return
+    _INDUSTRY_LOADED = True
+    if not os.environ.get("SSL_CERT_FILE"):
+        try:
+            import certifi
+            os.environ["SSL_CERT_FILE"] = certifi.where()
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        import FinanceDataReader as fdr
+        df = fdr.StockListing("KRX-DESC")
+        for code, ind in zip(df["Code"], df["Industry"]):
+            if isinstance(ind, str) and ind and ind.lower() != "nan":
+                _INDUSTRY[str(code)] = ind
+    except Exception as e:  # noqa: BLE001
+        print(f"  [warn] 업종 분류 로드 실패: {e}", file=sys.stderr)
+
+
 def collect_kospi(limit: Optional[int] = None, chart_top: int = 300) -> list[Stock]:
     """검색용 KOSPI 전 종목. limit=None이면 전체.
 
@@ -255,11 +282,13 @@ def collect_kospi(limit: Optional[int] = None, chart_top: int = 300) -> list[Sto
     except Exception as e:  # noqa: BLE001
         print(f"  [warn] KOSPI 리스트 수집 실패: {e}", file=sys.stderr)
         return out
+    _load_industry()
     total = len(df)
     for idx, (_, r) in enumerate(df.iterrows()):
         code = str(r["Code"])
         s = Stock(name=str(r["Name"]), ticker=f"{code}.KS", source="kospi",
-                  section="KOSPI", currency="KRW", ai_universe=False)
+                  section="KOSPI", currency="KRW", ai_universe=False,
+                  industry=_INDUSTRY.get(code))
         try:
             krx_cap = _krx_market_cap(code)  # KRX 공식 시총 우선
             s.market_cap = round((krx_cap if krx_cap else float(r["Marcap"])) / 1e12, 2)
@@ -912,27 +941,59 @@ def build_dashboard(stocks: list[Stock], top3: list[Stock], as_of: str,
         }
         seen_tickers.add(s.ticker)
 
-    # 섹터 가중 적용 전 단계 = KOSPI 중앙값(PER·PBR) 대비 기본 저평가 평가
+    # 업종별 시총 가중평균 대비 저평가 평가 (적자·소형주 제외)
     import statistics
+    from collections import defaultdict
     extra = extra or []
-    pers = [s.per for s in extra if s.per and s.per > 0]
-    pbrs = [s.pbr for s in extra if s.pbr and s.pbr > 0]
-    med_per = statistics.median(pers) if pers else None
-    med_pbr = statistics.median(pbrs) if pbrs else None
+    MIN_CAP = 0.1  # 조 (= 1,000억) 미만 소형주는 평균 계산에서 제외
+
+    # KOSPI 전체 중앙값(업종 표본 부족 시 폴백)
+    _p = [s.per for s in extra if s.per and s.per > 0]
+    _b = [s.pbr for s in extra if s.pbr and s.pbr > 0]
+    med_per = statistics.median(_p) if _p else None
+    med_pbr = statistics.median(_b) if _b else None
+
+    groups: dict[str, list[Stock]] = defaultdict(list)
+    for s in extra:
+        if s.industry:
+            groups[s.industry].append(s)
+
+    def wavg(members: list[Stock], metric: str) -> tuple[Optional[float], int]:
+        num = den = 0.0
+        n = 0
+        for s in members:
+            v, cap = getattr(s, metric), s.market_cap
+            if v and v > 0 and cap and cap >= MIN_CAP:
+                num += v * cap
+                den += cap
+                n += 1
+        return (num / den if den else None, n)
+
+    ind_avg: dict[str, dict] = {}
+    for ind, members in groups.items():
+        pa, npa = wavg(members, "per")
+        pb, npb = wavg(members, "pbr")
+        ind_avg[ind] = {"per": pa, "pbr": pb, "n": min(npa, npb)}
 
     for s in extra:
         if s.ticker in seen_tickers or s.name in out:
             continue
+        avg = ind_avg.get(s.industry or "")
+        use_ind = bool(avg and avg["n"] >= 5 and avg["per"] and avg["pbr"])
+        if use_ind:
+            b_per, b_pbr, basis = avg["per"], avg["pbr"], f"{s.industry} 업종(시총 가중) 평균"
+        else:
+            b_per, b_pbr, basis = med_per, med_pbr, "KOSPI 전체 중앙값(업종 표본 부족)"
         vs = []
-        if s.per and s.per > 0 and med_per:
-            vs.append((med_per - s.per) / med_per)
-        if s.pbr and s.pbr > 0 and med_pbr:
-            vs.append((med_pbr - s.pbr) / med_pbr)
+        if s.per and s.per > 0 and b_per:
+            vs.append((b_per - s.per) / b_per)
+        if s.pbr and s.pbr > 0 and b_pbr:
+            vs.append((b_pbr - s.pbr) / b_pbr)
         score = sum(vs) / len(vs) if vs else None
         safety = s.pbr is not None and s.pbr < 1.0
         if score is None:
             level, verdict = "out", "데이터 부족"
-            reasons = ["PER·PBR 데이터가 없어 기본 평가를 산출하지 못했습니다."]
+            reasons = ["PER·PBR 데이터가 없어 평가를 산출하지 못했습니다."]
         else:
             if score > 0.20 or (safety and score > 0):
                 level, verdict = "value", "저평가"
@@ -941,14 +1002,17 @@ def build_dashboard(stocks: list[Stock], top3: list[Stock], as_of: str,
             else:
                 level, verdict = "neutral", "적정"
             cmp = "낮음" if score > 0.05 else ("높음" if score < -0.05 else "유사")
-            reasons = [f"KOSPI 중앙값 대비 PER·PBR {cmp} — 섹터 가중 적용 전 기본 평가"]
+            reasons = [f"{basis} 대비 PER·PBR {cmp}"]
             if safety:
                 reasons.append("PBR 1배 미만(순자산 대비 저평가)")
         out[s.name] = {
-            "ticker": s.ticker, "section": s.section, "profile": None, "ai": False,
+            "ticker": s.ticker, "section": s.industry or "KOSPI", "profile": None, "ai": False,
             "lens": "", "level": level, "verdict": verdict, "rank": None,
             "ev_ebitda": None, "roic": None, "peg": None,
             "reasons": reasons, "safety": ["PBR<1"] if safety else [], "supply": None,
+            "industry": s.industry, "basis": basis,
+            "benchPER": round(b_per, 2) if b_per else None,
+            "benchPBR": round(b_pbr, 2) if b_pbr else None,
             **_quote_fields(s),
         }
         seen_tickers.add(s.ticker)
@@ -956,7 +1020,7 @@ def build_dashboard(stocks: list[Stock], top3: list[Stock], as_of: str,
     return {"as_of": as_of, "top3": [t.name for t in top3],
             "generated_at": datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"),
             "stocks": out, "news": news or {},
-            "count": len(out),
+            "count": len(out), "industries": len(ind_avg),
             "benchmark": {"medPER": round(med_per, 2) if med_per else None,
                           "medPBR": round(med_pbr, 2) if med_pbr else None}}
 
