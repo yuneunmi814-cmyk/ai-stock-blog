@@ -1,4 +1,4 @@
-baseURL = "https://projectyoon.github.io/ai-stock-blog/"
+baseURL = "https://johnnjane.github.io/ai-stock-blog/"
 defaultContentLanguage = "ko"
 title = "AI 섹터 저평가 종목 탐색기"
 timeZone = "Asia/Seoul"
