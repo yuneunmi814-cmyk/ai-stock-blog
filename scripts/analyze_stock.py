@@ -261,7 +261,8 @@ def collect_kospi(limit: Optional[int] = None, chart_top: int = 300) -> list[Sto
         s = Stock(name=str(r["Name"]), ticker=f"{code}.KS", source="kospi",
                   section="KOSPI", currency="KRW", ai_universe=False)
         try:
-            s.market_cap = round(float(r["Marcap"]) / 1e12, 2)
+            krx_cap = _krx_market_cap(code)  # KRX 공식 시총 우선
+            s.market_cap = round((krx_cap if krx_cap else float(r["Marcap"])) / 1e12, 2)
             s.volume = float(r["Volume"]) if r.get("Volume") == r.get("Volume") else None
             close = float(r["Close"]); chg = float(r.get("ChagesRatio") or 0)
             s.last_close = {"price": close, "pct": round(chg, 2),
