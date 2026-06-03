@@ -35,6 +35,12 @@
     </div>
     <p id="d-supply-none" class="chart-note" hidden>해외 종목은 투자자별 수급 데이터를 제공하지 않습니다.</p>
 
+    <div id="d-income">
+      <h4>최근 3년 당기순이익 <span id="d-income-badge" class="trend-badge"></span></h4>
+      <div class="chart-box chart-box-sm"><canvas id="d-incomechart"></canvas></div>
+      <p class="chart-note">DART 연결 재무제표 기준 · 단위 억원 · 저평가/AI 국내 종목 제공</p>
+    </div>
+
     <div id="d-news">
       <h4>관련 기사</h4>
       <ol id="d-news-list" class="news-list"></ol>
@@ -56,7 +62,7 @@
 <script>
 (function () {
   var URL = "{{ "data/latest.json" | relURL }}";
-  var DATA = null, currentName = null, priceChart, supplyChart;
+  var DATA = null, currentName = null, priceChart, supplyChart, incomeChart;
   var input = document.getElementById("stock-search");
 
   function fmtNum(v) { return v == null ? "—" : Number(v).toLocaleString(); }
@@ -150,6 +156,26 @@
     });
   }
 
+  function drawIncome(it) {
+    var wrap = document.getElementById("d-income");
+    if (incomeChart) { incomeChart.destroy(); incomeChart = null; }
+    if (!it) { wrap.style.display = "none"; return; }
+    wrap.style.display = "block";
+    var badge = document.getElementById("d-income-badge");
+    var map = { up: ["우상향 ↑", "up"], down: ["하락 ↓", "down"], mixed: ["혼조", "flat"] };
+    var b = map[it.trend] || ["", ""];
+    badge.textContent = b[0]; badge.className = "trend-badge " + b[1];
+    incomeChart = new Chart(document.getElementById("d-incomechart"), {
+      type: "bar",
+      data: { labels: it.years, datasets: [{ label: "당기순이익(억원)", data: it.values,
+        backgroundColor: it.values.map(function (v) { return v < 0 ? "#dc2626" : "#16a34a"; }) }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: function (c) { return c.parsed.y.toLocaleString() + " 억원"; } } } },
+        scales: { y: { ticks: { callback: function (v) { return v.toLocaleString(); } } } } }
+    });
+  }
+
   function renderNews(items) {
     var ol = document.getElementById("d-news-list");
     ol.innerHTML = "";
@@ -183,6 +209,7 @@
     renderMetrics(s);
     drawPrice(s);
     drawSupply(s.supply);
+    drawIncome(s.incomeTrend);
     renderNews(DATA.news[s.section]);
     input.value = name;
     try { history.replaceState(null, "", "#" + encodeURIComponent(name)); } catch (e) {}

@@ -130,6 +130,7 @@ class Stock:
     volume: Optional[float] = None          # 거래량
     ai_universe: bool = True                # AI 4개 섹션 분석 대상 여부
     industry: Optional[str] = None          # KRX/KSIC 업종(FDR KRX-DESC)
+    income_trend: Optional[dict] = None     # 최근 3년 당기순이익 {years, values(억원), trend}
 
     def metric(self, key: str) -> Optional[float]:
         return getattr(self, key)
@@ -233,6 +234,95 @@ def fetch_quote(stock: Stock) -> None:
             stock.recomm_mean = _clean(i.get("recommendationMean"))
     except Exception as e:  # noqa: BLE001
         print(f"  [warn] {stock.name} 시세지표 수집 실패: {e}", file=sys.stderr)
+
+
+_CORP_MAP: dict[str, str] = {}
+_CORP_LOADED = False
+
+
+def _load_corp_map() -> None:
+    """DART corpCode 마스터에서 종목코드(6자리)→corp_code 매핑 1회 적재."""
+    global _CORP_LOADED
+    if _CORP_LOADED:
+        return
+    _CORP_LOADED = True
+    key = os.environ.get("DART_API_KEY")
+    if not key:
+        return
+    try:
+        import requests, io, zipfile
+        import xml.etree.ElementTree as ET
+        z = requests.get("https://opendart.fss.or.kr/api/corpCode.xml",
+                         params={"crtfc_key": key}, timeout=60).content
+        root = ET.fromstring(zipfile.ZipFile(io.BytesIO(z)).read("CORPCODE.xml").decode("utf-8"))
+        for c in root.iter("list"):
+            sc = (c.findtext("stock_code") or "").strip()
+            if sc:
+                _CORP_MAP[sc] = c.findtext("corp_code")
+    except Exception as e:  # noqa: BLE001
+        print(f"  [warn] corpCode 매핑 로드 실패: {e}", file=sys.stderr)
+
+
+def fetch_income_trend(code6: str) -> Optional[dict]:
+    """최근 3년 당기순이익(억원) 추세 — DART 연간 보고서 1회 호출."""
+    key = os.environ.get("DART_API_KEY")
+    if not key:
+        return None
+    _load_corp_map()
+    corp = _CORP_MAP.get(code6)
+    if not corp:
+        return None
+    import requests
+    cur_year = int(datetime.now(KST).strftime("%Y"))
+    for y in (cur_year - 1, cur_year - 2):  # 최근 확정 사업연도
+        try:
+            r = requests.get("https://opendart.fss.or.kr/api/fnlttSinglAcnt.json",
+                             params={"crtfc_key": key, "corp_code": corp, "bsns_year": str(y),
+                                     "reprt_code": "11011", "fs_div": "CFS"}, timeout=15).json()
+            if r.get("status") != "000":
+                continue
+            ni = next((it for it in r.get("list", [])
+                       if it.get("sj_div") == "IS" and "당기순이익" in (it.get("account_nm") or "")), None)
+            if not ni:
+                continue
+            vals = [_to_num(ni.get("bfefrmtrm_amount")), _to_num(ni.get("frmtrm_amount")),
+                    _to_num(ni.get("thstrm_amount"))]
+            if any(v is None for v in vals):
+                continue
+            if vals[2] > vals[1] > vals[0]:
+                trend = "up"
+            elif vals[2] < vals[1] < vals[0]:
+                trend = "down"
+            else:
+                trend = "mixed"
+            return {"years": [str(y - 2), str(y - 1), str(y)],
+                    "values": [round(v / 1e8) for v in vals], "trend": trend}
+        except Exception:  # noqa: BLE001
+            continue
+    return None
+
+
+def enrich_income_trends(dash: dict, top_n: int = 120) -> None:
+    """저평가 국내 종목(시총 상위 N) + 국내 AI 종목에 3년 순이익 추세를 주입."""
+    stocks = dash["stocks"]
+    targets = []
+    for name, s in stocks.items():
+        tk = s.get("ticker", "")
+        if not tk.endswith((".KS", ".KQ")):
+            continue
+        if s.get("ai") or s.get("level") == "value":
+            targets.append((name, s))
+    # 저평가 다수일 수 있으니 시총 상위 우선
+    targets.sort(key=lambda x: x[1].get("marketCap") or 0, reverse=True)
+    done = 0
+    for name, s in targets:
+        if done >= top_n:
+            break
+        tr = fetch_income_trend(s["ticker"].split(".")[0])
+        if tr:
+            s["incomeTrend"] = tr
+        done += 1
+    print(f"  [info] 3년 순이익 추세 {done}종목 처리", file=sys.stderr)
 
 
 _INDUSTRY: dict[str, str] = {}
@@ -437,6 +527,11 @@ def load_sample() -> tuple[list[Stock], str]:
             s.target_price = round(c[-1] * 1.15, 2)
             s.recomm_mean = round(2.0 + (sum(ord(x) for x in s.name) % 20) / 10, 1)
             s.volume = float(1_000_000 + sum(ord(x) for x in s.name) * 7919 % 5_000_000)
+            seed = sum(ord(x) for x in s.name)
+            base = 500 + seed % 4000
+            s.income_trend = {"years": ["2023", "2024", "2025"],
+                              "values": [base, round(base * 1.18), round(base * 1.4)],
+                              "trend": "up"}
             stocks.append(s)
     return stocks, raw.get("as_of", "")
 
@@ -937,6 +1032,7 @@ def build_dashboard(stocks: list[Stock], top3: list[Stock], as_of: str,
             "level": level, "verdict": verdict, "rank": rank,
             "ev_ebitda": s.ev_ebitda, "roic": s.roic, "peg": s.peg,
             "reasons": reasons, "safety": s.safety_flags, "supply": s.supply,
+            "incomeTrend": s.income_trend,
             **_quote_fields(s),
         }
         seen_tickers.add(s.ticker)
@@ -1278,11 +1374,13 @@ def main() -> int:
 
     md = build_markdown(stocks, top3, as_of, args.mode, news)
 
-    # 메인 대시보드 데이터(AI 정밀 + KOSPI 200 검색)
+    # 메인 대시보드 데이터(AI 정밀 + KOSPI 전 종목 검색)
+    dash = build_dashboard(stocks, top3, as_of, news, kospi)
+    if args.mode != "sample":
+        print("[info] 저평가/AI 국내 종목 3년 순이익 추세 수집 중...", file=sys.stderr)
+        enrich_income_trends(dash)
     LATEST_PATH.parent.mkdir(parents=True, exist_ok=True)
-    LATEST_PATH.write_text(
-        json.dumps(build_dashboard(stocks, top3, as_of, news, kospi), ensure_ascii=False),
-        encoding="utf-8")
+    LATEST_PATH.write_text(json.dumps(dash, ensure_ascii=False), encoding="utf-8")
 
     if args.stdout:
         print(md)
