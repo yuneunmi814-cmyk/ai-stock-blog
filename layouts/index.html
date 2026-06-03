@@ -99,6 +99,11 @@
       ["1년 주가", s.momentum == null ? "—" :
         '<span class="' + (s.momentum >= 0 ? "up" : "down") + '">' + (s.momentum > 0 ? "+" : "") + s.momentum + "%</span>"]
     ];
+    if (s.forwardPE != null) {
+      var out = (s.per && s.forwardPE < s.per);
+      rows.push(["추정 PER", s.forwardPE + "배" +
+        (s.per ? ' <span class="' + (out ? "up" : "down") + '">(' + (out ? "이익↑ 전망" : "이익↓ 전망") + ")</span>" : "")]);
+    }
     if (s.benchPER != null) {
       var lbl = (s.basis && s.basis.indexOf("업종(시총") >= 0) ? "업종" : "대형주";
       rows.push([lbl + " 평균 PER", s.benchPER + "배"]);

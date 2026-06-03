@@ -119,6 +119,8 @@ class Stock:
     safety_flags: list[str] = field(default_factory=list)
     momentum: Optional[float] = None  # 최근 1년 주가 수익률(%)
     trend_warn: bool = False          # 하락 추세(가치 함정) 경고
+    forward_pe: Optional[float] = None  # 추정 PER(선행)
+    forward_score: float = 0.0          # 추정치(이익전망·목표가·투자의견) 신호
     composite: float = 0.0
     is_candidate: bool = False     # 1차 후보군 여부
     cheap_flags: list[str] = field(default_factory=list)
@@ -223,6 +225,7 @@ def fetch_quote(stock: Stock) -> None:
                 stock.per = _num_prefix(ti.get("PER"))
             if stock.pbr is None:
                 stock.pbr = _num_prefix(ti.get("PBR"))
+            stock.forward_pe = _num_prefix(ti.get("추정PER"))
             ci = j.get("consensusInfo") or {}
             stock.target_price = _num_prefix(ci.get("priceTargetMean"))
             stock.recomm_mean = _num_prefix(ci.get("recommMean"))
@@ -560,6 +563,7 @@ def fetch_yahoo(name: str, ticker: str, section: str) -> Stock:
         per=_clean(per), pbr=_clean(pbr), ev_ebitda=_clean(ev_ebitda),
         roic=_clean(roic), peg=_clean(peg),
     )
+    s.forward_pe = _clean(info.get("forwardPE"))
     # 전일 종가 + 등락률
     price = info.get("regularMarketPrice") or info.get("currentPrice") or info.get("previousClose")
     prev = info.get("previousClose")
@@ -998,6 +1002,19 @@ def score(stocks: list[Stock]) -> None:
                 + safety
             )
 
+            # 추정치(선행) 신호 — 이익전망(추정PER<현재PER)·목표가 상승여력·투자의견
+            fwd = []
+            if s.per and s.per > 0 and s.forward_pe and s.forward_pe > 0:
+                fwd.append(max(-0.5, min(0.5, (s.per - s.forward_pe) / s.per)))
+            px = (s.last_close or {}).get("price")
+            if s.target_price and px:
+                fwd.append(max(-0.5, min(0.5, s.target_price / px - 1)))
+            if s.recomm_mean:
+                fwd.append(max(-0.5, min(0.5, (3 - s.recomm_mean) / 2)))
+            if fwd:
+                s.forward_score = round(sum(fwd) / len(fwd), 3)
+                s.composite += 0.35 * s.forward_score
+
             # 주가 추세(모멘텀) 반영 — 하락 추세(가치 함정)에 비대칭 페널티
             s.momentum = momentum_1y(s.history)
             if s.momentum is not None:
@@ -1020,7 +1037,7 @@ def _quote_fields(s: Stock) -> dict:
         "week52High": s.week52_high, "week52Low": s.week52_low,
         "target": s.target_price, "recommMean": s.recomm_mean,
         "history": s.history, "lastClose": s.last_close,
-        "per": s.per, "pbr": s.pbr,
+        "per": s.per, "pbr": s.pbr, "forwardPE": s.forward_pe,
         "momentum": mom, "trendWarn": (mom is not None and mom < -15),
     }
 
