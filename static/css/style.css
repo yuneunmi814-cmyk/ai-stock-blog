@@ -93,6 +93,8 @@ hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
 .q-v .up { color: #dc2626; font-weight: 700; }
 .q-v .down { color: #2563eb; font-weight: 700; }
 .reasons { margin: 12px 0; padding-left: 20px; color: #374151; }
+.warn { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412;
+        border-radius: 8px; padding: 8px 12px; margin: 10px 0; font-size: .9rem; font-weight: 600; }
 .metrics-table { width: auto; }
 .metrics-table th, .metrics-table td { text-align: center; padding: 8px 14px; }
 .metric-note { color: #9ca3af; font-size: .78rem; margin: 4px 0 0; }

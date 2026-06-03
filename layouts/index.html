@@ -20,6 +20,7 @@
     </div>
     <p id="d-sub" class="d-sub"></p>
     <p id="d-close" class="last-close"></p>
+    <p id="d-warn" class="warn" hidden></p>
     <ul id="d-reasons" class="reasons"></ul>
 
     <div id="d-quote" class="quote-grid"></div>
@@ -94,7 +95,9 @@
       ["52주 최고", price(s.week52High)],
       ["52주 최저", price(s.week52Low)],
       ["목표주가", price(s.target) + upside],
-      ["투자의견", s.recommMean == null ? "—" : s.recommMean + " (1매수~5매도)"]
+      ["투자의견", s.recommMean == null ? "—" : s.recommMean + " (1매수~5매도)"],
+      ["1년 주가", s.momentum == null ? "—" :
+        '<span class="' + (s.momentum >= 0 ? "up" : "down") + '">' + (s.momentum > 0 ? "+" : "") + s.momentum + "%</span>"]
     ];
     if (s.benchPER != null) {
       var lbl = (s.basis && s.basis.indexOf("업종(시총") >= 0) ? "업종" : "대형주";
@@ -203,6 +206,11 @@
     document.getElementById("d-sub").textContent =
       (s.industry ? "업종: " + s.industry : s.section) + " · " + (s.lens || "업종 평균 대비 평가");
     showClose(s.lastClose);
+    var w = document.getElementById("d-warn");
+    if (s.trendWarn) {
+      w.hidden = false;
+      w.textContent = "[주의] 최근 1년 주가 " + s.momentum + "% 하락 추세 — 저평가가 가치 함정(falling knife)일 수 있어 추세·실적 확인이 필요합니다.";
+    } else { w.hidden = true; }
     var ul = document.getElementById("d-reasons"); ul.innerHTML = "";
     s.reasons.forEach(function (r) { var li = document.createElement("li"); li.textContent = r; ul.appendChild(li); });
     renderQuote(s);

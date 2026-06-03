@@ -117,6 +117,8 @@ class Stock:
     growth_bonus: float = 0.0      # PEG<1 가점
     safety_bonus: float = 0.0      # 안전마진(PBR<1, EV/EBITDA<평균) 가점
     safety_flags: list[str] = field(default_factory=list)
+    momentum: Optional[float] = None  # 최근 1년 주가 수익률(%)
+    trend_warn: bool = False          # 하락 추세(가치 함정) 경고
     composite: float = 0.0
     is_candidate: bool = False     # 1차 후보군 여부
     cheap_flags: list[str] = field(default_factory=list)
@@ -929,6 +931,18 @@ def sector_profile(section: str) -> str:
     return "hardware" if section in HARDWARE_SECTORS else "software"
 
 
+def momentum_1y(history: Optional[dict]) -> Optional[float]:
+    """최근 1년 주가 수익률(%). 월봉 13개월 비교, 자료 짧으면 전체 구간."""
+    if not history:
+        return None
+    c = history.get("closes") or []
+    if len(c) >= 13 and c[-13]:
+        return round((c[-1] / c[-13] - 1) * 100, 1)
+    if len(c) >= 2 and c[0]:
+        return round((c[-1] / c[0] - 1) * 100, 1)
+    return None
+
+
 def score(stocks: list[Stock]) -> None:
     """투자 해석 가이드를 반영한 섹터 가중 스코어링.
 
@@ -984,6 +998,14 @@ def score(stocks: list[Stock]) -> None:
                 + safety
             )
 
+            # 주가 추세(모멘텀) 반영 — 하락 추세(가치 함정)에 비대칭 페널티
+            s.momentum = momentum_1y(s.history)
+            if s.momentum is not None:
+                f = s.momentum / 100.0
+                s.composite += (max(-0.5, f) * 1.2) if f < 0 else (min(0.15, f) * 0.8)
+                if s.momentum < -15:
+                    s.trend_warn = True
+
 
 def pick_top3(stocks: list[Stock]) -> list[Stock]:
     cands = [s for s in stocks if s.is_candidate]
@@ -992,12 +1014,14 @@ def pick_top3(stocks: list[Stock]) -> list[Stock]:
 
 
 def _quote_fields(s: Stock) -> dict:
+    mom = momentum_1y(s.history)
     return {
         "marketCap": s.market_cap, "volume": s.volume,
         "week52High": s.week52_high, "week52Low": s.week52_low,
         "target": s.target_price, "recommMean": s.recomm_mean,
         "history": s.history, "lastClose": s.last_close,
         "per": s.per, "pbr": s.pbr,
+        "momentum": mom, "trendWarn": (mom is not None and mom < -15),
     }
 
 
@@ -1198,13 +1222,14 @@ def build_markdown(stocks: list[Stock], top3: list[Stock], as_of: str, mode: str
     # --- 오늘의 AI 저평가 Top 3 ---
     out.append("## 오늘의 AI 저평가 Top 3")
     out.append("")
-    out.append("| 순위 | 종목 | 섹션 | PER | PBR | EV/EBITDA | ROIC | PEG |")
-    out.append("|:---:|:---|:---|---:|---:|---:|---:|---:|")
+    out.append("| 순위 | 종목 | 섹션 | PER | PBR | EV/EBITDA | ROIC | PEG | 1년주가 |")
+    out.append("|:---:|:---|:---|---:|---:|---:|---:|---:|---:|")
     for i, s in enumerate(top3, 1):
+        mom = f"{s.momentum:+g}%" if s.momentum is not None else "—"
         out.append(
             f"| {i} | **{s.name}** ({s.ticker}) | {s.section} | "
             f"{fmt(s.per)} | {fmt(s.pbr)} | {fmt(s.ev_ebitda)} | "
-            f"{fmt(s.roic, '%')} | {fmt(s.peg)} |"
+            f"{fmt(s.roic, '%')} | {fmt(s.peg)} | {mom} |"
         )
     out.append("")
 
@@ -1220,6 +1245,9 @@ def build_markdown(stocks: list[Stock], top3: list[Stock], as_of: str, mode: str
             out.append(f"- {line}")
         if s.safety_flags:
             out.append(f"- 안전마진: {', '.join(s.safety_flags)} — 가격 하방을 받쳐주는 신호.")
+        if s.trend_warn:
+            out.append(f"- **[주의] 최근 1년 주가 {s.momentum:+g}% 하락 추세** — 저평가가 "
+                       "가치 함정(falling knife)일 수 있어 추세·실적 확인 필요.")
         out.append("")
 
     # --- 투자 관점: 데이터 해석법 ---
@@ -1307,7 +1335,9 @@ def build_markdown(stocks: list[Stock], top3: list[Stock], as_of: str, mode: str
     out.append("3. 섹터 성격에 따라 가중치를 달리한다 — 하드웨어는 PBR·EV/EBITDA, "
                "소프트웨어·AI는 ROIC·PEG의 비중을 높인다.")
     out.append("4. PBR 1배 미만 또는 EV/EBITDA가 동종평균 미만이면 안전마진 가점을 더한다.")
-    out.append("5. `종합점수 = 섹터가중 멀티플 할인 + ROIC 가점 + PEG 가점 + 안전마진` "
+    out.append("5. **주가 추세(모멘텀)** — 최근 1년 수익률이 하락 추세면 종합점수에 비대칭 페널티를 주고, "
+               "−15% 이하면 '가치 함정 주의'로 표시한다(저평가가 단지 주가 급락 때문일 위험 차단).")
+    out.append("6. `종합점수 = 섹터가중 멀티플 할인 + ROIC·PEG 가점 + 안전마진 + 추세조정` "
                "상위 3종목을 Top 3로 선정한다.")
     out.append("")
     out.append("국내 종목은 DART 공시 최신 분기 보고서(펀더멘털)와 KRX 시가총액을 적용하며, "
