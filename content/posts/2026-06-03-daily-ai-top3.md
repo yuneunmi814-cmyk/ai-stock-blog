@@ -16,7 +16,7 @@ tags: ["어도비", "삼성전자", "TSMC", "저평가", "밸류에이션"]
 
 | 순위 | 종목 | 섹션 | PER | PBR | EV/EBITDA | ROIC | PEG |
 |:---:|:---|:---|---:|---:|---:|---:|---:|
-| 1 | **어도비** (ADBE) | AI 애플리케이션 | 15.283 | 9.308 | 11.109 | 58.774% | 0.778 |
+| 1 | **어도비** (ADBE) | AI 애플리케이션 | 15.266 | 9.308 | 11.109 | 58.774% | 0.744 |
 | 2 | **삼성전자** (005930.KS) | 인프라/반도체 | 25.028 | 4.331 | 16.149 | 13.113% | 0.29 |
 | 3 | **TSMC** (TSM) | 인프라/반도체 | 38.179 | — | 3.269 | 36.21% | 1.352 |
 
@@ -24,9 +24,9 @@ tags: ["어도비", "삼성전자", "TSMC", "저평가", "밸류에이션"]
 
 **1. 어도비 (ADBE)** · AI 애플리케이션 — 자본효율·성장성(ROIC·PEG) 중심
 
-- 섹션 동종평균을 밑도는 멀티플: PER 15.283배(섹션평균 39.4배), PBR 9.308배(섹션평균 9.7배) — 가치 대비 가격 매력.
+- 섹션 동종평균을 밑도는 멀티플: PER 15.266배(섹션평균 39.4배), PBR 9.308배(섹션평균 9.7배) — 가치 대비 가격 매력.
 - ROIC 58.774% — 우수한 자본 수익성으로 저평가가 '저성장 함정'이 아님을 시사.
-- PEG 0.778(<1) — 이익성장률 대비 주가가 싸 성장 프리미엄 미반영 구간.
+- PEG 0.744(<1) — 이익성장률 대비 주가가 싸 성장 프리미엄 미반영 구간.
 - 안전마진: EV/EBITDA<동종평균 — 가격 하방을 받쳐주는 신호.
 
 **2. 삼성전자 (005930.KS)** · 인프라/반도체 — 유형자산(PBR·EV/EBITDA) 중심
@@ -67,36 +67,36 @@ Top 3는 아래 기준으로 선정·검토됩니다. 무조건 오르는 종목
 | 삼성전자 (005930.KS) | 25.028 | 4.331 | 16.149 | 13.113% | 0.29 | O | EV/EBITDA, PBR, PER |
 | TSMC (TSM) | 38.179 | — | 3.269 | 36.21% | 1.352 | O | EV/EBITDA, PER |
 | SK하이닉스 (000660.KS) | 39.163 | 10.232 | 17.877 | 29.928% | 3.341 | O | EV/EBITDA, PBR, PER |
-| 마이크론 (MU) | 50.122 | 16.565 | 32.504 | 39.823% | 0.357 | O | PBR, PER |
+| 마이크론 (MU) | 50.241 | 16.565 | 32.504 | 39.823% | 0.367 | O | PBR, PER |
 | 엔비디아 (NVDA) | 34.123 | 34.428 | 32.335 | 114.288% | 0.691 | — | PER |
-| ASML (ASML) | 56.6 | — | 51.288 | 52.236% | 2.437 | — | PER |
-| AMD (AMD) | 173.269 | 13.188 | — | 8.063% | 1.227 | — | PBR |
+| ASML (ASML) | 56.488 | — | 51.288 | 52.236% | 2.437 | — | PER |
+| AMD (AMD) | 172.695 | 13.188 | — | 8.063% | 1.227 | — | PBR |
 | 브로드컴 (AVGO) | 93.509 | 28.554 | 62.657 | 33.371% | 1.001 | — | — |
 | 한미반도체 (042700.KS) | 147.279 | 41.09 | — | 12.324% | 1.528 | — | — |
 
 ### 클라우드/데이터센터
-동종 7개 종목 기준 평균 PER 32.2배 · PBR 8.8배 · EV/EBITDA 24.7배. **네이버**이(가) 동종평균 대비 가장 저평가되어 있으며, **이퀴닉스**은(는) 고밸류 구간.
+동종 7개 종목 기준 평균 PER 32.4배 · PBR 8.8배 · EV/EBITDA 24.7배. **네이버**이(가) 동종평균 대비 가장 저평가되어 있으며, **이퀴닉스**은(는) 고밸류 구간.
 
 | 종목 | PER | PBR | EV/EBITDA | ROIC | PEG | 후보 | 가격 매력 |
 |:---|---:|---:|---:|---:|---:|:---:|:---|
 | 네이버 (035420.KS) | 26.097 | 1.423 | 13.359 | 2.52% | — | O | EV/EBITDA, PBR, PER |
 | 마이크로소프트 (MSFT) | 26.253 | 7.912 | 18.028 | 34.014% | 1.42 | O | EV/EBITDA, PBR, PER |
-| 아마존 (AMZN) | 31.056 | 6.242 | 18.297 | 24.285% | 1.834 | O | EV/EBITDA, PBR, PER |
+| 아마존 (AMZN) | 31.63 | 6.242 | 18.297 | 24.285% | 1.834 | O | EV/EBITDA, PBR, PER |
 | 알파벳 (GOOGL) | 27.622 | 9.158 | 26.986 | 38.885% | 1.482 | — | PER |
-| 이퀴닉스 (EQIX) | 73.917 | 7.393 | 29.823 | 10.059% | 3.446 | — | PBR |
+| 이퀴닉스 (EQIX) | 74.07 | 7.393 | 29.823 | 10.059% | 3.446 | — | PBR |
 | 코어위브 (CRWV) | — | 13.334 | 32.391 | -40.673% | — | — | — |
-| 오라클 (ORCL) | 43.989 | 20.965 | 30.318 | 57.572% | 1.57 | — | — |
+| 오라클 (ORCL) | 43.989 | 20.965 | 30.318 | 57.572% | 1.547 | — | — |
 
 ### 모델/소프트웨어
 동종 7개 종목 기준 평균 PER 47.5배 · PBR 13.1배 · EV/EBITDA 16.2배. **메타**이(가) 동종평균 대비 가장 저평가되어 있으며, **팔란티어**은(는) 고밸류 구간.
 
 | 종목 | PER | PBR | EV/EBITDA | ROIC | PEG | 후보 | 가격 매력 |
 |:---|---:|---:|---:|---:|---:|:---:|:---|
-| 메타 (META) | 21.732 | 6.224 | 13.93 | 32.93% | 0.868 | O | EV/EBITDA, PBR, PER |
+| 메타 (META) | 21.74 | 6.224 | 13.93 | 32.93% | 0.868 | O | EV/EBITDA, PBR, PER |
 | C3.ai (AI) | — | 2.24 | — | -55.012% | — | — | PBR |
-| IBM (IBM) | 29.11 | 9.384 | 22.126 | 35.772% | 2.992 | O | PBR, PER |
+| IBM (IBM) | 29.161 | 9.384 | 22.126 | 35.772% | 2.992 | O | PBR, PER |
 | 카카오 (035720.KS) | 34.518 | 1.219 | 9.662 | 1.719% | 1.2 | O | EV/EBITDA, PBR, PER |
-| SAP (SAP) | 26.212 | 4.257 | 18.98 | 16.35% | 1.7 | O | PBR, PER |
+| SAP (SAP) | 26.248 | 4.257 | 18.98 | 16.35% | 1.7 | O | PBR, PER |
 | 스노우플레이크 (SNOW) | 99.986 | 46.674 | — | -54.869% | — | — | — |
 | 팔란티어 (PLTR) | 172.92 | 43.169 | — | 32.587% | 2.304 | — | — |
 
@@ -105,7 +105,7 @@ Top 3는 아래 기준으로 선정·검토됩니다. 무조건 오르는 종목
 
 | 종목 | PER | PBR | EV/EBITDA | ROIC | PEG | 후보 | 가격 매력 |
 |:---|---:|---:|---:|---:|---:|:---:|:---|
-| 어도비 (ADBE) | 15.283 | 9.308 | 11.109 | 58.774% | 0.778 | O | EV/EBITDA, PBR, PER |
+| 어도비 (ADBE) | 15.266 | 9.308 | 11.109 | 58.774% | 0.744 | O | EV/EBITDA, PBR, PER |
 | 듀오링고 (DUOL) | 12.58 | 3.701 | 22.34 | 36.961% | — | O | EV/EBITDA, PBR, PER |
 | 세일즈포스 (CRM) | 23.245 | 4.805 | 15.138 | 16.908% | 1.021 | O | EV/EBITDA, PBR, PER |
 | 더존비즈온 (012510.KS) | 33.898 | 5.541 | 20.603 | 11.079% | 2.894 | O | EV/EBITDA, PBR, PER |
@@ -117,24 +117,24 @@ Top 3는 아래 기준으로 선정·검토됩니다. 무조건 오르는 종목
 ## 섹션별 주요 뉴스 Top 3
 
 ### 인프라/반도체
-1. [AI 데이터센터發 반도체 슈퍼사이클…4년 만에 10배 성장 전망](https://news.google.com/rss/articles/CBMiTkFVX3lxTE9lX0RsMEQxM1h4NHhSMzNCbW1jNUF2dGxaTjk3ZkhFXy13ZG92dHlvNnlQN2tBZTNSWTVyZ0lhQWdUci1zampGME16cnlfZw?oc=5) — 전자신문 · Wed, 03 Jun 2026
-1. [엔비디아 없는 중국 AI…자율주행·반도체 국산화 가속](https://news.google.com/rss/articles/CBMiiAFBVV95cUxNbjJCbTBvXzJvNFIwNms1VnFzNmx0M0hWSE9naG1FbXdRdUZCU3dEUmg1SEpaTzBUeUhBblh0UHE2bkJLWThyNV9JZVRMalM4QldQT2g0Vl9OUHA4M3d1cGcwRG1lakFyRGtSUC1wUDdpVWdEMzB4NkVDT0F0dFczbEkxVGtiWWYt?oc=5) — 글로벌이코노믹 · Tue, 02 Jun 2026
-1. ['AI반도체' 선점 도전…산업부, 온디바이스 AI반도체에 8002억 투입](https://news.google.com/rss/articles/CBMiX0FVX3lxTE9KcW9nX1phdUVsLVFtX3YycENNRGxJTXNnelNMUkJLTUJGNGh0cVFna1VFUHhUc3lLZmlLZ2c1YnBuNmt5dDYzeEpUR2dkdV9YdHVwb1VkazR4RnRPclFr?oc=5) — 뉴스1 · Tue, 02 Jun 2026
+1. [HBM부터 피지컬 AI까지… 컴퓨텍스 2026서 존재감 커진 한국 기업 - 조선비즈](https://news.google.com/rss/articles/CBMiggFBVV95cUxPWnN0T1B3aHFvUW5XZHpLeG5wSFlRTXNseWswT0xzc0NUcHVlbWlqdnN2WGkwUGxxdTl6XzZlNVZDNUt5anBTWml0aUVKMjFvZXI1emJPOEFmaVljYWhuYzVaamp2THozUC1pd2g2NnhKdWl5V2lodTJNelh4VHZ6bHh30gGWAUFVX3lxTE5QY1VWVGx6bTVWNW03TFo0azlfOGJqZTFmamRwN0dVcDB3c1Q5c1lSRXh1R05QaGJ2QWFncTRtUzM1OG85OEF4bVdPX2hXYzR2VnVSLWU5ZEEyNTcxdUVmN3dpSTgwSVpXUVdZSGd3MkdKbFVYTUlUeFMwbmNZc21WRGVnWUhDaGlVM3NYMVNSdExEZW5DZw?oc=5) — Chosunbiz · Wed, 03 Jun 2026
+1. [골드만삭스 “1만2000간다” 전문가 “반도체 끝 아냐”···낙관론 커진 국내 증시, 지금 타도 될까](https://news.google.com/rss/articles/CBMiWkFVX3lxTE52b3J3cm13QzlJNktCdkg1ald6Nmg4UjFJaDFLLWpmdFVJRk5xdkxtanIyakliQ3lTLVdBQ2M0akt4Y2ZaTEN0clVnQnpla3lkb2d4bTluVUpOQdIBX0FVX3lxTE03dVRHMXlNSEh4YmZnVFBzNXRCcDN2UTh1OVZjYkxESjBaWnJ6QzhPTzVsTTR6N1JEVmYyelgwTDNuNHE2SWl6ME01VmtyUl9fTFF1QTZfRUFMaFNlLVhF?oc=5) — 경향신문 · Wed, 03 Jun 2026
+1. [뜨거운 AI 반도체 테마…美마벨 하루 32%↑·日키옥시아, 1년 40배↑ - 머니투데이](https://news.google.com/rss/articles/CBMibkFVX3lxTFB1eGZVLUZiRDh1ajJvVFJ5X284M0d6T3lXTVpZOWxVYUF1ODN3RjlrbkM4eUlaSHFKWExvLWo5alljdG9VclloWnVnMVRxejN5UnRwQUs4bWZQMVhNeTNBUHl4SzZ2WWFsRXMyU3ZB0gFuQVVfeXFMUHV4ZlUtRmJEOHVqMm9UUnlfbzgzR3pPeVdNWlk5bFVhQXU4M3dGOWtuQzh5SVpIcUpYTG8tajlqWWN0b1VyWWhadWcxVHF6M3lSdHBBSzhtZlAxWE15M0FQeXhLNnZZYWxFczJTdkE?oc=5) — 머니투데이 · Wed, 03 Jun 2026
 
 ### 클라우드/데이터센터
+1. [“4400조원 시장 잡아라”…삼성중, ‘바다 위 AI 데이터센터’ 시장 선점 나선다](https://news.google.com/rss/articles/CBMia0FVX3lxTE1rM0tUWi1pZWoxekVGMmtLaW1UcFZrQ2VjTGl2Y1p5SlluVVN6SXRGcE9ZMWcxRGdXajFua2lINDAyRk4yN0FQN1pzLWJfX2E1eHFnb2dSd3BIa1lGR3lyWFZVUkNXbklnWXNV?oc=5) — 해사신문 · Wed, 03 Jun 2026
 1. [AI 데이터센터發 반도체 슈퍼사이클…4년 만에 10배 성장 전망](https://news.google.com/rss/articles/CBMiTkFVX3lxTE9lX0RsMEQxM1h4NHhSMzNCbW1jNUF2dGxaTjk3ZkhFXy13ZG92dHlvNnlQN2tBZTNSWTVyZ0lhQWdUci1zampGME16cnlfZw?oc=5) — 전자신문 · Wed, 03 Jun 2026
-1. [네이버클라우드, 엔비디아와 인프라·모델·서비스 전방위 협력… "글로벌 AI 팩토리 구축"](https://news.google.com/rss/articles/CBMiSEFVX3lxTE9JaXo1NldHRUpCcm9vYVdiWHlheXJMVjhaZzgxVkF5WF9Td0x2alhKdG81clAySkhRRlpzT2tXeThneHU0LUhZUA?oc=5) — 플래텀(Platum) · Tue, 02 Jun 2026
-1. [삼성중공업, '바다 위 AI 데이터센터' 글로벌 협력 강화](https://news.google.com/rss/articles/CBMiWkFVX3lxTE9LdkpxMmZIU2RzanRJUmMxX19fdlNYbFVYemFLcWlVVWR6bHhMSDNQRnlnNUIzcUJ4WEVVcXhDTGRvWFRMcFl0R0RaMk9FdW1hZ2hCdm1MZHprd9IBVEFVX3lxTE9oM1dxZ1FNR3pkeGRBd3Backt3UE1NTE5MSEdqNHh0Z2ozS3FPXzJ5Y0lPT3lzOW9EZXJaWjNXcXY5VTNOT19XTnpuOWRiSm12Tk8tNw?oc=5) — 더팩트 · Wed, 03 Jun 2026
+1. [바다 위 AI 데이터센터 시대 연다…삼성중공업, 글로벌 동맹 구축](https://news.google.com/rss/articles/CBMiZ0FVX3lxTFBzOWNfcm1IN0NJN3l2enh1Nkx2cnNKQUlGWDBvdlhPRVAtZWlzWHctd3pTNFpLZ1pldXlxS01STGV3bjBoSTY2TGdraWVVaU1xNnBZQkJ1X1ZweTNFUGoxQmRvQTJSbDA?oc=5) — 거제타임라인 · Wed, 03 Jun 2026
 
 ### 모델/소프트웨어
+1. [MS, ‘오픈 AI 독립 선언’...자체 AI 모델 대거 공개](https://news.google.com/rss/articles/CBMigwFBVV95cUxQM0JreUo3NmVLTG52eEVJUV84MHltZHN5UkVUbmN6VTJOZUV5MTY2Y2d4ZjJYZkdMb3p5Ml8zb2NCanBsZnhGeUNsSU9VTlk3bTd5bC1SZjNBYmc2OFJiTXFfaEJrSXIxRFI2T1NEeG5oWjBkcjBWT3JNRTNfRGVJQ0lLUQ?oc=5) — 조선일보 · Wed, 03 Jun 2026
+1. [MS, 자체 AI 모델 7종 출시…오픈AI 의존 줄여 ‘경쟁구도’로](https://news.google.com/rss/articles/CBMiYEFVX3lxTFBRaGdMWTdvdGhBOWUtZ1paYklUYlhwQmlnUThOT1FyLUJOcGZtcDVnR3g4ZnpLRXN5eDc3YUl6dGNZeWNyb3lCZFNKS1puVDYyaExOTEVrMGpTX0tPNGdRYg?oc=5) — 한겨레 · Wed, 03 Jun 2026
 1. [트럼프 대통령, AI 모델 사전 검토 위한 행정명령 서명](https://news.google.com/rss/articles/CBMi3gFBVV95cUxNMmw5UjhkUkEwOFMzRXlDM0xxYzB0QUxITl9pWlNFWlgwcVl6U1hXYjNaVHEtY3F5czBOVnNkbjhjd3UxcjFMU1FqcFhWS2lTcU5scVpJU0I2elNlYl9GWTNHdE1vQmtoMFlHanpXS3FYSWhuUnFwbGZoeGlTVmtid1ltTWNfaTdYU3dPdURPcnppN3JGSWJnR0hHS1FXdVEtdjNPWjlHRk9GQWUzMUpqcWUxY1paZXFEd1VaSEUzdzhmdG9JQUZpRkFNdzh3czRIZlNJanFYZHRELURrZGfSAeABQVVfeXFMTko2SDBfTDAxZ2xuY3JRZlBQMGFsZmlfb1pLUmFvVnE0VmxGb0w0NF94SjBEZkVabDl0bmdOVHdjdkw2V2l3dDVQdy1NYzJpVTRrRkNNQllMV0R5WTI5R0VnM2Q5UUlWeTJTYUo4dXZVd2cyZTBOVE94bGxaM2FWdDl1SThLYjdyZFN2ZlBIY2pJdUF4Rk5IM0tORlJHeDhDNXozNndRcUM0bjQ2bmhBdm9DQnlrWnNOSVd3aVhJTEVkMS1WdHlScXdHN25JM3NuSExPSl9KQWZKRnZ5bjFhZ2M?oc=5) — VOA 한국어 홈페이지 · Tue, 02 Jun 2026
-1. [MS, 첫 추론모델 등 자체 AI 7종 공개…'오픈AI 의존 축소' 가속](https://news.google.com/rss/articles/CBMiYEFVX3lxTE9MUURGeEM5dDlYN0lsVDJNd1J5NWRadm5UalFTeDF3a0xXYXBHQmgzMVhTam5fMTRVNExaTXhJVV9YaWJUNjJCNTdCUnVoSEtPcFRBZDk2dTRPNEhEMTQ5S9IBYEFVX3lxTE9MUURGeEM5dDlYN0lsVDJNd1J5NWRadm5UalFTeDF3a0xXYXBHQmgzMVhTam5fMTRVNExaTXhJVV9YaWJUNjJCNTdCUnVoSEtPcFRBZDk2dTRPNEhEMTQ5Sw?oc=5) — 연합뉴스 · Tue, 02 Jun 2026
-1. [마이크로소프트, 자체 AI 모델 공개…오픈AI 의존 줄이나](https://news.google.com/rss/articles/CBMib0FVX3lxTFBoX0w2NTI5ZXpnVl92WTlVTTdfSjc3X3dlSVNKTUtIOVFXdDdoYXBzZlBkb1dibDZFQXd3ZXF2YUZtTzFsQktYSTdqMmdyeE9zaFZyVWZ5UWxYVkhiRDF6Y0ppdi1tRnE1UUFCcGlGNNIBc0FVX3lxTE16LU5XZTNnTEZER3pGQ3lyYU03Mm1BZGRxZ0pVOEMzbUpFa1hIVkdiejlKelZVWURHNDZPTmotekpkdFE3VE5DWDNqcE1HUGpLRVNDVjZvRHB3VjVHSHV6OEpCdWlwY0JrbzJDbGhSODhQbEU?oc=5) — 초이스경제 · Wed, 03 Jun 2026
 
 ### AI 애플리케이션
-1. [마이크로소프트 빌드 2026 개막](https://news.google.com/rss/articles/CBMioAFBVV95cUxOV3ZxQnFMdThhTVM1dTd4RTlCQXl3SE5MSmlxT3htUG8tZnhfeGYwQm9nVXVZSzM3cjV4ODNGSXRvZXFCTzVTQWZGb3NaRi0zMjNUMlh4aFVjcnZHLTk5cDlKQXB3MllkZkFUVTNTRERYMjc3eFNtN0tfU3B1NjZScjlyWE9FNEZpc21yQ0R6M1NoMm1MUm9ZSi1ibnNZYmNU?oc=5) — Microsoft Source · Tue, 02 Jun 2026
-1. [마이크로소프트, ‘빌드 2026’ 개최…AI 에이전트 개발 전반 지원 플랫폼 공개](https://news.google.com/rss/articles/CBMiaEFVX3lxTE8zYVJFZjVIV2JIRmtweW1KR0dtTVdOUzNER2UtM2dLdWhmaHMtb2dRTkVQUndsdUY1YVZ2Z3ZsZEp4SmVDRVFhdGZsb19vQXhHMEZ1bVJuMG9KRVYyblYtc1hfcEtId0Ru?oc=5) — 테크월드 · Wed, 03 Jun 2026
 1. [MS "윈도11, AI 에이전트 개발 핵심 플랫폼"](https://news.google.com/rss/articles/CBMiVkFVX3lxTFAyZ19RWTdwaHZsWVdBVmFoOE5LTENETFVfTlprMlF2Q0EtWXFERDRQV1VuX2FXbDBzcHBYQnM5M3VYUTdsWnJwM1RwSnV0OWpCTWxyaDJB?oc=5) — 지디넷코리아 · Wed, 03 Jun 2026
+1. [마이크로소프트 빌드 2026 개막](https://news.google.com/rss/articles/CBMioAFBVV95cUxOV3ZxQnFMdThhTVM1dTd4RTlCQXl3SE5MSmlxT3htUG8tZnhfeGYwQm9nVXVZSzM3cjV4ODNGSXRvZXFCTzVTQWZGb3NaRi0zMjNUMlh4aFVjcnZHLTk5cDlKQXB3MllkZkFUVTNTRERYMjc3eFNtN0tfU3B1NjZScjlyWE9FNEZpc21yQ0R6M1NoMm1MUm9ZSi1ibnNZYmNU?oc=5) — Microsoft Source · Wed, 03 Jun 2026
+1. [[컴퓨텍스2026] 시놀로지, DSM 20주년 맞아 AI 대전환…에이전트 기능 탑재](https://news.google.com/rss/articles/CBMiaEFVX3lxTE0zT1p0djltZmZVa1dtcy1udXNUZk1EQUFaNWVHcWp0YVM1SGJTeGVPWUxFdjN1NmEtZkhvdXpVcm9FQ19TT0wxOS1LNjlRMDJybUUteldUQXh4czBwOUJlUEI1aTVyNjh60gFsQVVfeXFMTnFRYUdCUXkxMnpFbEd3WjNwM1JBYVZKMExtdEg3NW1CNS13V1hOVVByUE9vcXo5WENFM01FTTJPYUJoblUyZVJfZ3R3eVJGbFZrSzFPNFhEQVFXRlRqR2g2b2MxclJuM3Z3Z25M?oc=5) — 블로터 · Wed, 03 Jun 2026
 
 <details><summary>분석 방법론</summary>
 
