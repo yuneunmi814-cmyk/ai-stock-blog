@@ -31,6 +31,22 @@ body {
 #refresh-btn.spinning .ref-ico { animation: spin .6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .site-title { font-size: 1.5rem; font-weight: 800; text-decoration: none; color: var(--fg); }
+.site-nav { display: flex; gap: 6px; margin-top: 14px; }
+.site-nav a { font-size: .9rem; font-weight: 600; text-decoration: none; color: #6b7280;
+              padding: 6px 14px; border-radius: 8px; }
+.site-nav a:hover { background: var(--bg-soft); }
+.site-nav a.active { background: var(--accent); color: #fff; }
+.report-list { list-style: none; padding: 0; }
+.report-list li { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin: 10px 0; }
+.rl-head { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.rl-head time { color: #9ca3af; font-size: .85rem; font-variant-numeric: tabular-nums; }
+.rl-head a { color: var(--accent); font-weight: 700; text-decoration: none; }
+.rl-head a:hover { text-decoration: underline; }
+.rl-top3 { margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.rl-label { font-size: .78rem; color: #9ca3af; font-weight: 600; }
+.t3-chip { font-size: .85rem; background: var(--bg-soft); border: 1px solid var(--border);
+           border-radius: 999px; padding: 3px 11px; }
+.t3-chip b { color: var(--accent); }
 .site-tagline { color: #6b7280; font-size: .92rem; margin: 6px 0 0; }
 .intro { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 12px;
          padding: 16px 20px; margin: 28px 0; }

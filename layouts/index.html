@@ -6,11 +6,19 @@
 </section>
 
 <h2>일일 리포트</h2>
-<ul class="post-list">
+<ul class="report-list">
   {{ range (where .Site.RegularPages "Section" "posts").ByDate.Reverse }}
+  {{ $t3 := .Params.top3 | default (first 3 .Params.tags) }}
   <li>
-    <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "2006-01-02" }}</time>
-    <a href="{{ .RelPermalink }}">{{ .Title }}</a>
+    <div class="rl-head">
+      <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "2006-01-02" }}</time>
+      <a href="{{ .RelPermalink }}">{{ .Title }}</a>
+    </div>
+    {{ with $t3 }}
+    <div class="rl-top3"><span class="rl-label">Top 3</span>
+      {{ range $i, $n := . }}<span class="t3-chip"><b>{{ add $i 1 }}</b> {{ $n }}</span>{{ end }}
+    </div>
+    {{ end }}
   </li>
   {{ end }}
 </ul>

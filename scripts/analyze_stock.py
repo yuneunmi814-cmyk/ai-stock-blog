@@ -1239,6 +1239,7 @@ def build_markdown(stocks: list[Stock], top: list[Stock], as_of: str, mode: str,
     out.append("draft: false")
     out.append("categories: [\"AI투자\", \"데일리리포트\"]")
     out.append(f"tags: [{', '.join(json.dumps(t, ensure_ascii=False) for t in tags)}]")
+    out.append(f"top3: [{', '.join(json.dumps(t.name, ensure_ascii=False) for t in top3)}]")
     out.append("---")
     out.append("")
 
