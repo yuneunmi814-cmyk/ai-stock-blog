@@ -1024,10 +1024,15 @@ def score(stocks: list[Stock]) -> None:
                     s.trend_warn = True
 
 
-def pick_top3(stocks: list[Stock]) -> list[Stock]:
-    cands = [s for s in stocks if s.is_candidate]
-    cands.sort(key=lambda s: s.composite, reverse=True)
-    return cands[:3]
+def pick_top(stocks: list[Stock], n: int = 10) -> list[Stock]:
+    """전체 종합점수 순 Top N(후보군 우선, 부족 시 점수순 보충)."""
+    cands = sorted([s for s in stocks if s.is_candidate],
+                   key=lambda s: s.composite, reverse=True)
+    if len(cands) >= n:
+        return cands[:n]
+    rest = sorted([s for s in stocks if s not in cands],
+                  key=lambda s: s.composite, reverse=True)
+    return (cands + rest)[:n]
 
 
 def _quote_fields(s: Stock) -> dict:
@@ -1042,21 +1047,21 @@ def _quote_fields(s: Stock) -> dict:
     }
 
 
-def build_dashboard(stocks: list[Stock], top3: list[Stock], as_of: str,
+def build_dashboard(stocks: list[Stock], top: list[Stock], as_of: str,
                     news: Optional[dict], extra: Optional[list[Stock]] = None) -> dict:
     """메인 대시보드(검색·차트·추천여부·뉴스)용 JSON 데이터.
 
     stocks = AI 4개 섹션(정밀 분석), extra = KOSPI 시총상위(기본 시세).
-    중복(국내 AI 종목)은 AI 풀세트를 우선한다.
+    중복(국내 AI 종목)은 AI 풀세트를 우선한다. top = 전체 점수순 Top 10.
     """
-    ranks = {t.name: i + 1 for i, t in enumerate(top3)}
+    ranks = {t.name: i + 1 for i, t in enumerate(top)}
     out: dict[str, dict] = {}
     seen_tickers: set[str] = set()
     for s in stocks:
         rank = ranks.get(s.name)
         if rank:
-            level, verdict = "buy", "추천"
-            reasons = [f"섹터 가중 종합점수 상위 — 오늘의 Top {rank}"]
+            level, verdict = "buy", f"추천 (Top {rank})"
+            reasons = [f"전체 종합점수 Top {rank}"]
         elif s.is_candidate:
             level, verdict = "watch", "관심(후보군)"
             reasons = ["동종평균 대비 멀티플이 낮은 1차 후보군"]
@@ -1154,7 +1159,7 @@ def build_dashboard(stocks: list[Stock], top3: list[Stock], as_of: str,
         }
         seen_tickers.add(s.ticker)
 
-    return {"as_of": as_of, "top3": [t.name for t in top3],
+    return {"as_of": as_of, "top3": [t.name for t in top[:3]], "top10": [t.name for t in top],
             "generated_at": datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"),
             "stocks": out, "news": news or {},
             "count": len(out), "industries": len(ind_avg),
@@ -1197,8 +1202,9 @@ def fmt(v: Optional[float], suffix: str = "") -> str:
     return f"{v:g}{suffix}" if v is not None else "—"
 
 
-def build_markdown(stocks: list[Stock], top3: list[Stock], as_of: str, mode: str,
+def build_markdown(stocks: list[Stock], top: list[Stock], as_of: str, mode: str,
                    news: Optional[dict] = None) -> str:
+    top3 = top[:3]
     by_section: dict[str, list[Stock]] = {}
     for s in stocks:
         by_section.setdefault(s.section, []).append(s)
@@ -1211,7 +1217,7 @@ def build_markdown(stocks: list[Stock], top3: list[Stock], as_of: str, mode: str
     # --- Front matter (Hugo / YAML) ---
     tags = [t.name for t in top3] + ["저평가", "밸류에이션"]
     out.append("---")
-    out.append(f'title: "[{as_of}] 오늘의 AI 저평가 Top 3"')
+    out.append(f'title: "[{as_of}] 오늘의 AI 저평가 Top 10"')
     out.append(f"date: {as_of}T07:00:00+09:00")
     out.append("draft: false")
     out.append("categories: [\"AI투자\", \"데일리리포트\"]")
@@ -1236,22 +1242,26 @@ def build_markdown(stocks: list[Stock], top3: list[Stock], as_of: str, mode: str
                + "</p>")
     out.append("")
 
-    # --- 오늘의 AI 저평가 Top 3 ---
-    out.append("## 오늘의 AI 저평가 Top 3")
+    # --- 오늘의 AI 저평가 Top 10 (전체 종합점수 순) ---
+    out.append("## 오늘의 AI 저평가 Top 10")
     out.append("")
-    out.append("| 순위 | 종목 | 섹션 | PER | PBR | EV/EBITDA | ROIC | PEG | 1년주가 |")
-    out.append("|:---:|:---|:---|---:|---:|---:|---:|---:|---:|")
-    for i, s in enumerate(top3, 1):
+    out.append("| 섹션 | 종목 | 종합점수 | PER | PBR | EV/EBITDA | ROIC | PEG | 1년주가 | 비고 |")
+    out.append("|:---|:---|---:|---:|---:|---:|---:|---:|---:|:---|")
+    for i, s in enumerate(top, 1):
         mom = f"{s.momentum:+g}%" if s.momentum is not None else "—"
+        note = "[하락주의]" if s.trend_warn else ""
         out.append(
-            f"| {i} | **{s.name}** ({s.ticker}) | {s.section} | "
+            f"| {s.section} | **{i}. {s.name}** ({s.ticker}) | {s.composite:.3f} | "
             f"{fmt(s.per)} | {fmt(s.pbr)} | {fmt(s.ev_ebitda)} | "
-            f"{fmt(s.roic, '%')} | {fmt(s.peg)} | {mom} |"
+            f"{fmt(s.roic, '%')} | {fmt(s.peg)} | {mom} | {note} |"
         )
     out.append("")
+    out.append("<sub>전체 종합점수 순. 섹션 편중 없이 점수 그대로 — 본인 판단으로 선택하세요. "
+               "`[하락주의]`는 최근 1년 주가 하락 추세(가치 함정 가능)입니다.</sub>")
+    out.append("")
 
-    # --- Top 3 선정 근거 ---
-    out.append("### 선정 근거")
+    # --- 상위 3종목 선정 근거 ---
+    out.append("### 상위 3종목 선정 근거")
     out.append("")
     for i, s in enumerate(top3, 1):
         lens = "유형자산(PBR·EV/EBITDA) 중심" if sector_profile(s.section) == "hardware" \
@@ -1270,8 +1280,9 @@ def build_markdown(stocks: list[Stock], top3: list[Stock], as_of: str, mode: str
     # --- 투자 관점: 데이터 해석법 ---
     out.append("## 투자 관점: 데이터 해석법")
     out.append("")
-    out.append("Top 3는 아래 기준으로 선정·검토됩니다. 무조건 오르는 종목은 없으나, "
-               "재무적으로 우량하면서 시장의 주목은 아직 낮은 종목을 찾는 데 최적화되어 있습니다.")
+    out.append("Top 10은 아래 기준의 전체 종합점수 순입니다. 무조건 오르는 종목은 없으며, "
+               "재무적으로 우량하면서 시장의 주목은 아직 낮은 종목을 찾는 데 최적화되어 있습니다. "
+               "최종 선택은 투자자 본인의 판단입니다.")
     out.append("")
     out.append("- **안전마진** — PBR이 1배 미만이거나 EV/EBITDA가 동종 업계 평균보다 낮으면, "
                "시장이 그 기업의 AI 잠재력을 아직 가격에 반영하지 않았다는 신호로 보고 가점합니다.")
@@ -1401,15 +1412,7 @@ def main() -> int:
 
     sanitize(stocks)
     score(stocks)
-    top3 = pick_top3(stocks)
-    if len(top3) < 3:
-        print("[warn] 후보군이 3개 미만입니다. 종합점수 상위로 보충합니다.", file=sys.stderr)
-        extra = sorted(stocks, key=lambda s: s.composite, reverse=True)
-        for s in extra:
-            if s not in top3:
-                top3.append(s)
-            if len(top3) == 3:
-                break
+    top = pick_top(stocks, 10)
 
     if args.mode == "sample":
         news = {sec: synth_news(sec) for sec in SECTION_ORDER}
@@ -1419,10 +1422,10 @@ def main() -> int:
         print("[info] KOSPI 전 종목 수집 중...", file=sys.stderr)
         kospi = collect_kospi()  # 전 종목
 
-    md = build_markdown(stocks, top3, as_of, args.mode, news)
+    md = build_markdown(stocks, top, as_of, args.mode, news)
 
     # 메인 대시보드 데이터(AI 정밀 + KOSPI 전 종목 검색)
-    dash = build_dashboard(stocks, top3, as_of, news, kospi)
+    dash = build_dashboard(stocks, top, as_of, news, kospi)
     if args.mode != "sample":
         print("[info] 저평가/AI 국내 종목 3년 순이익 추세 수집 중...", file=sys.stderr)
         enrich_income_trends(dash)
