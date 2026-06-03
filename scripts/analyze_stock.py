@@ -327,7 +327,7 @@ def enrich_income_trends(dash: dict, top_n: int = 120) -> None:
         name, s = t
         return name, fetch_income_trend(s["ticker"].split(".")[0])
 
-    with ThreadPoolExecutor(max_workers=10) as ex:
+    with ThreadPoolExecutor(max_workers=14) as ex:
         for name, tr in ex.map(one, targets):
             if tr:
                 stocks[name]["incomeTrend"] = tr
@@ -360,7 +360,7 @@ def _load_industry() -> None:
         print(f"  [warn] 업종 분류 로드 실패: {e}", file=sys.stderr)
 
 
-def collect_kospi(limit: Optional[int] = None, chart_top: int = 300) -> list[Stock]:
+def collect_kospi(limit: Optional[int] = None, chart_top: int = 150) -> list[Stock]:
     """검색용 KOSPI 전 종목. limit=None이면 전체.
 
     전 종목: 기본 시세 + PER/PBR/52주/목표가(네이버). 차트는 시총 상위 chart_top만.
@@ -407,7 +407,7 @@ def collect_kospi(limit: Optional[int] = None, chart_top: int = 300) -> list[Sto
             fetch_history(s)           # 시총 상위만 3년 차트(FDR)
         return s
 
-    with ThreadPoolExecutor(max_workers=12) as ex:
+    with ThreadPoolExecutor(max_workers=16) as ex:
         out = list(ex.map(build_one, enumerate(rows)))
     print(f"  [info] KOSPI {len(out)}종목 병렬 수집 완료", file=sys.stderr)
     return out

@@ -1,9 +1,11 @@
 name: Build & Deploy (Hugo)
 
 on:
-  # 매일 07:00 KST = 22:00 UTC(전일): 리포트 생성 후 배포
+  # 매일 07:00 KST = 22:00 UTC(전일). GitHub cron은 지연·누락이 잦아 백업 시각 추가.
   schedule:
-    - cron: "0 22 * * *"
+    - cron: "0 22 * * *"    # 07:00 KST
+    - cron: "30 22 * * *"   # 07:30 KST (백업)
+    - cron: "0 23 * * *"    # 08:00 KST (백업)
   # 코드/콘텐츠 push 시 재배포
   push:
     branches: [main]
@@ -54,8 +56,21 @@ jobs:
         id: d
         run: echo "date=$(TZ=Asia/Seoul date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
 
-      - name: Generate report
+      # 백업 cron 중복 방지: 스케줄 실행인데 오늘 리포트가 이미 있으면 생성 생략
+      - name: Check existing report
         if: github.event_name != 'push'
+        id: chk
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] && \
+             [ -f "content/posts/${{ steps.d.outputs.date }}-daily-ai-top3.md" ]; then
+            echo "오늘(${{ steps.d.outputs.date }}) 리포트 이미 존재 — 생성 생략(백업 cron)"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate report
+        if: github.event_name != 'push' && steps.chk.outputs.skip != 'true'
         env:
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           KRX_API_KEY: ${{ secrets.KRX_API_KEY }}
@@ -65,7 +80,7 @@ jobs:
             --date "${{ steps.d.outputs.date }}"
 
       - name: Commit new report
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' && steps.chk.outputs.skip != 'true'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
