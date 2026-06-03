@@ -59,9 +59,12 @@ fetch("{{ "data/latest.json" | relURL }}").then(function (r) { return r.json(); 
 
 function initDash(data) {
   var S = data.stocks, names = Object.keys(S);
+  var bm = data.benchmark || {};
   document.querySelector(".dash-asof").textContent =
     "기준일 " + data.as_of + " · 검색 가능 " + (data.count || names.length) +
-    "종목(KOSPI 시총 상위 + AI 해외) · 추천 여부는 섹터 가중 점수 기반의 정량 분석이며 투자 권유가 아닙니다.";
+    "종목(KOSPI 전 종목 + AI 해외)" +
+    (bm.medPER ? " · KOSPI 중앙값 PER " + bm.medPER + "배 / PBR " + bm.medPBR + "배" : "") +
+    " · 정량 분석이며 투자 권유가 아닙니다.";
   var dl = document.getElementById("stock-list");
   names.forEach(function (n) {
     var o = document.createElement("option");
@@ -180,7 +183,8 @@ function initDash(data) {
     document.getElementById("d-name").textContent = name + " (" + s.ticker + ")";
     var v = document.getElementById("d-verdict");
     v.textContent = s.verdict; v.className = "verdict " + s.level;
-    document.getElementById("d-sub").textContent = s.section + " · " + s.lens;
+    document.getElementById("d-sub").textContent =
+      s.section + " · " + (s.lens || "기본 평가(섹터 가중 적용 전)");
     showClose(s.lastClose);
     var ul = document.getElementById("d-reasons"); ul.innerHTML = "";
     s.reasons.forEach(function (r) { var li = document.createElement("li"); li.textContent = r; ul.appendChild(li); });

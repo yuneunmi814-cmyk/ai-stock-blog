@@ -234,8 +234,11 @@ def fetch_quote(stock: Stock) -> None:
         print(f"  [warn] {stock.name} 시세지표 수집 실패: {e}", file=sys.stderr)
 
 
-def collect_kospi(limit: int = 200) -> list[Stock]:
-    """검색용 KOSPI 시총 상위 N종목(기본 시세 + 차트 + 52주/목표가)."""
+def collect_kospi(limit: Optional[int] = None, chart_top: int = 300) -> list[Stock]:
+    """검색용 KOSPI 전 종목. limit=None이면 전체.
+
+    전 종목: 기본 시세 + PER/PBR/52주/목표가(네이버). 차트는 시총 상위 chart_top만.
+    """
     if not os.environ.get("SSL_CERT_FILE"):
         try:
             import certifi
@@ -246,16 +249,19 @@ def collect_kospi(limit: int = 200) -> list[Stock]:
     try:
         import FinanceDataReader as fdr
         df = fdr.StockListing("KOSPI")
-        df = df.dropna(subset=["Marcap"]).sort_values("Marcap", ascending=False).head(limit)
+        df = df.dropna(subset=["Marcap"]).sort_values("Marcap", ascending=False)
+        if limit:
+            df = df.head(limit)
     except Exception as e:  # noqa: BLE001
         print(f"  [warn] KOSPI 리스트 수집 실패: {e}", file=sys.stderr)
         return out
-    for _, r in df.iterrows():
+    total = len(df)
+    for idx, (_, r) in enumerate(df.iterrows()):
         code = str(r["Code"])
         s = Stock(name=str(r["Name"]), ticker=f"{code}.KS", source="kospi",
-                  section="KOSPI 200", currency="KRW", ai_universe=False)
+                  section="KOSPI", currency="KRW", ai_universe=False)
         try:
-            s.market_cap = round(float(r["Marcap"]) / 1e12, 1)
+            s.market_cap = round(float(r["Marcap"]) / 1e12, 2)
             s.volume = float(r["Volume"]) if r.get("Volume") == r.get("Volume") else None
             close = float(r["Close"]); chg = float(r.get("ChagesRatio") or 0)
             s.last_close = {"price": close, "pct": round(chg, 2),
@@ -263,9 +269,12 @@ def collect_kospi(limit: int = 200) -> list[Stock]:
                             "date": "", "cur": "KRW"}
         except Exception:  # noqa: BLE001
             pass
-        fetch_quote(s)
-        fetch_history(s)
+        fetch_quote(s)            # 전 종목 PER/PBR/52주/목표가
+        if idx < chart_top:
+            fetch_history(s)      # 시총 상위만 3년 차트
         out.append(s)
+        if idx % 100 == 99:
+            print(f"  [info] KOSPI {idx + 1}/{total} 수집...", file=sys.stderr)
     return out
 
 
@@ -902,22 +911,52 @@ def build_dashboard(stocks: list[Stock], top3: list[Stock], as_of: str,
         }
         seen_tickers.add(s.ticker)
 
-    for s in (extra or []):
+    # 섹터 가중 적용 전 단계 = KOSPI 중앙값(PER·PBR) 대비 기본 저평가 평가
+    import statistics
+    extra = extra or []
+    pers = [s.per for s in extra if s.per and s.per > 0]
+    pbrs = [s.pbr for s in extra if s.pbr and s.pbr > 0]
+    med_per = statistics.median(pers) if pers else None
+    med_pbr = statistics.median(pbrs) if pbrs else None
+
+    for s in extra:
         if s.ticker in seen_tickers or s.name in out:
             continue
+        vs = []
+        if s.per and s.per > 0 and med_per:
+            vs.append((med_per - s.per) / med_per)
+        if s.pbr and s.pbr > 0 and med_pbr:
+            vs.append((med_pbr - s.pbr) / med_pbr)
+        score = sum(vs) / len(vs) if vs else None
+        safety = s.pbr is not None and s.pbr < 1.0
+        if score is None:
+            level, verdict = "out", "데이터 부족"
+            reasons = ["PER·PBR 데이터가 없어 기본 평가를 산출하지 못했습니다."]
+        else:
+            if score > 0.20 or (safety and score > 0):
+                level, verdict = "value", "저평가"
+            elif score < -0.20:
+                level, verdict = "rich", "고평가"
+            else:
+                level, verdict = "neutral", "적정"
+            cmp = "낮음" if score > 0.05 else ("높음" if score < -0.05 else "유사")
+            reasons = [f"KOSPI 중앙값 대비 PER·PBR {cmp} — 섹터 가중 적용 전 기본 평가"]
+            if safety:
+                reasons.append("PBR 1배 미만(순자산 대비 저평가)")
         out[s.name] = {
             "ticker": s.ticker, "section": s.section, "profile": None, "ai": False,
-            "lens": "", "level": "out", "verdict": "AI 분석 대상 외", "rank": None,
+            "lens": "", "level": level, "verdict": verdict, "rank": None,
             "ev_ebitda": None, "roic": None, "peg": None,
-            "reasons": ["AI 4개 섹션 유니버스에 포함되지 않은 종목입니다. 기본 시세·차트만 제공합니다."],
-            "safety": [], "supply": None,
+            "reasons": reasons, "safety": ["PBR<1"] if safety else [], "supply": None,
             **_quote_fields(s),
         }
         seen_tickers.add(s.ticker)
 
     return {"as_of": as_of, "top3": [t.name for t in top3],
             "stocks": out, "news": news or {},
-            "count": len(out)}
+            "count": len(out),
+            "benchmark": {"medPER": round(med_per, 2) if med_per else None,
+                          "medPBR": round(med_pbr, 2) if med_pbr else None}}
 
 
 # ---------------------------------------------------------------------------
@@ -1168,8 +1207,8 @@ def main() -> int:
         kospi: list[Stock] = []
     else:
         news = {sec: fetch_news(q) for sec, q in SECTION_NEWS_QUERY.items()}
-        print("[info] KOSPI 시총 상위 200종목 수집 중...", file=sys.stderr)
-        kospi = collect_kospi(200)
+        print("[info] KOSPI 전 종목 수집 중...", file=sys.stderr)
+        kospi = collect_kospi()  # 전 종목
 
     md = build_markdown(stocks, top3, as_of, args.mode, news)
 

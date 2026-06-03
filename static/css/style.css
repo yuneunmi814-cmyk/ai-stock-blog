@@ -72,6 +72,8 @@ hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
 .verdict.watch { background: #fef9c3; color: #a16207; }
 .verdict.neutral { background: #f1f5f9; color: #475569; }
 .verdict.out { background: #f1f5f9; color: #94a3b8; }
+.verdict.value { background: #dcfce7; color: #15803d; }
+.verdict.rich { background: #fee2e2; color: #b91c1c; }
 .quote-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
               gap: 8px 16px; margin: 14px 0; }
 .q-item { display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding: 6px 0; }
