@@ -1,0 +1,86 @@
+{{ define "main" }}
+<p class="back"><a href="{{ site.Home.RelPermalink }}">← 홈 · 일일 리포트 목록</a></p>
+<h1>추천 성과 기록</h1>
+<p class="track-intro">
+  매일의 AI 저평가 Top 10은 <strong>생성 시점에 git에 커밋</strong>되어 사후 수정이 불가능합니다(불변 기록).
+  아래는 과거에 추천된 Top 10이 그 후 <strong>실제로 어떻게 됐는지</strong>를 현재가 기준으로 투명하게 계산한 결과입니다.
+</p>
+
+<section id="track-summary" class="track-summary"></section>
+<section id="track-body"></section>
+<p class="track-note">수익률은 추천일 종가 → 현재가 기준. 각 종목 통화 기준 단순수익률. 투자 권유가 아니며 과거 성과가 미래를 보장하지 않습니다.</p>
+
+<script>
+Promise.all([
+  fetch("{{ "data/history.json" | relURL }}", { cache: "no-store" }).then(function (r) { return r.json(); }),
+  fetch("{{ "data/latest.json" | relURL }}", { cache: "no-store" }).then(function (r) { return r.json(); })
+]).then(function (res) { render(res[0], res[1]); }).catch(function () {
+  document.getElementById("track-summary").innerHTML = "<p>성과 데이터를 불러오지 못했습니다.</p>";
+});
+
+function pct(x) { return (x >= 0 ? "+" : "") + (x * 100).toFixed(1) + "%"; }
+function cls(x) { return x > 0 ? "up" : (x < 0 ? "down" : "flat"); }
+
+function render(hist, latest) {
+  var cur = {};
+  for (var k in latest.stocks) { var s = latest.stocks[k]; if (s.lastClose) cur[k] = s.lastClose.price; }
+  var asOf = latest.as_of;
+  var snaps = (hist.snapshots || []).filter(function (s) { return s.date < asOf; });
+
+  // 종목별 수익률 계산
+  var all = [], wins = 0, n = 0;
+  var perDate = snaps.map(function (snap) {
+    var rows = [], rets = [];
+    snap.top10.forEach(function (x) {
+      var c0 = x.close, c1 = cur[x.name];
+      if (c0 && c1) {
+        var r = c1 / c0 - 1;
+        rows.push({ name: x.name, rank: x.rank, entry: c0, now: c1, ret: r, cur: x.cur });
+        rets.push(r); all.push(r); n++; if (r > 0) wins++;
+      }
+    });
+    var avg = rets.length ? rets.reduce(function (a, b) { return a + b; }, 0) / rets.length : null;
+    return { date: snap.date, avg: avg, rows: rows };
+  }).filter(function (d) { return d.rows.length; });
+
+  var startDate = (hist.snapshots && hist.snapshots[0]) ? hist.snapshots[0].date : asOf;
+  var days = Math.round((new Date(asOf) - new Date(startDate)) / 86400000);
+
+  var sum = document.getElementById("track-summary");
+  if (!n) {
+    sum.innerHTML = '<div class="track-cards"><div class="track-card"><span class="tc-k">추적 시작</span>' +
+      '<span class="tc-v">' + startDate + " (" + days + "일째)</span></div></div>" +
+      "<p>아직 성과를 계산할 실측 데이터가 쌓이는 중입니다. 매일 자동으로 종가가 누적되며 " +
+      "내일부터 수익률·승률이 채워집니다.</p>";
+    return;
+  }
+  var avgAll = all.reduce(function (a, b) { return a + b; }, 0) / all.length;
+  sum.innerHTML = '<div class="track-cards">' +
+    card("추적 시작", startDate + " (" + days + "일째)") +
+    card("기록된 추천", snaps.length + "일 · " + n + "건") +
+    card("전체 평균 수익률", '<span class="' + cls(avgAll) + '">' + pct(avgAll) + "</span>") +
+    card("승률(상승 비율)", (wins / n * 100).toFixed(0) + "% (" + wins + "/" + n + ")") +
+    "</div>";
+
+  var body = document.getElementById("track-body");
+  body.innerHTML = perDate.slice().reverse().map(function (d) {
+    var elapsed = Math.round((new Date(asOf) - new Date(d.date)) / 86400000);
+    var detail = d.rows.map(function (r) {
+      return "<tr><td>" + r.rank + ". " + r.name + "</td>" +
+        "<td>" + Math.round(r.entry).toLocaleString() + "</td>" +
+        "<td>" + Math.round(r.now).toLocaleString() + "</td>" +
+        '<td class="' + cls(r.ret) + '">' + pct(r.ret) + "</td></tr>";
+    }).join("");
+    return '<details class="track-day"><summary><span class="td-date">' + d.date +
+      "</span> <span class=\"td-meta\">" + elapsed + "일 전</span> " +
+      '<span class="td-avg ' + cls(d.avg) + '">평균 ' + pct(d.avg) + "</span></summary>" +
+      '<table class="track-table"><thead><tr><th>종목</th><th>추천일 종가</th><th>현재가</th><th>수익률</th></tr></thead>' +
+      "<tbody>" + detail + "</tbody></table></details>";
+  }).join("");
+}
+
+function card(k, v) {
+  return '<div class="track-card"><span class="tc-k">' + k + '</span><span class="tc-v">' + v + "</span></div>";
+}
+</script>
+{{ end }}

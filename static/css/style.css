@@ -47,6 +47,22 @@ body {
 .t3-chip { font-size: .85rem; background: var(--bg-soft); border: 1px solid var(--border);
            border-radius: 999px; padding: 3px 11px; }
 .t3-chip b { color: var(--accent); }
+
+/* 성과 기록 페이지 */
+.track-intro { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; }
+.track-note { color: #9ca3af; font-size: .8rem; margin-top: 18px; }
+.track-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 18px 0; }
+.track-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.tc-k { color: #6b7280; font-size: .8rem; }
+.tc-v { font-size: 1.15rem; font-weight: 700; }
+.track-day { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin: 8px 0; }
+.track-day summary { cursor: pointer; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.td-date { font-weight: 700; }
+.td-meta { color: #9ca3af; font-size: .82rem; }
+.td-avg { margin-left: auto; font-weight: 700; }
+.track-table { width: 100%; margin-top: 10px; font-size: .9rem; }
+.track-table th { background: var(--bg-soft); }
+.up { color: #dc2626; } .down { color: #2563eb; } .flat { color: #6b7280; }
 .site-tagline { color: #6b7280; font-size: .92rem; margin: 6px 0 0; }
 .intro { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 12px;
          padding: 16px 20px; margin: 28px 0; }
