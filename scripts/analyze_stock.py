@@ -153,9 +153,12 @@ class Stock:
     safety_bonus: float = 0.0      # 안전마진(PBR<1, EV/EBITDA<평균) 가점
     safety_flags: list[str] = field(default_factory=list)
     momentum: Optional[float] = None  # 최근 1년 주가 수익률(%)
+    momentum_short: Optional[float] = None  # 최근 3개월 주가 수익률(%)
     trend_warn: bool = False          # 하락 추세(가치 함정) 경고
+    cycle_warn: bool = False          # 경기민감주 정점 경고(저PER 착시 가능)
     forward_pe: Optional[float] = None  # 추정 PER(선행)
     forward_score: float = 0.0          # 추정치(이익전망·목표가·투자의견) 신호
+    growth_score: float = 0.0           # '앞으로 오른다' 렌즈: 전망·성장·모멘텀 종합
     composite: float = 0.0
     is_candidate: bool = False     # 1차 후보군 여부
     cheap_flags: list[str] = field(default_factory=list)
@@ -1005,6 +1008,20 @@ def momentum_1y(history: Optional[dict]) -> Optional[float]:
     return None
 
 
+def momentum_3m(history: Optional[dict]) -> Optional[float]:
+    """최근 3개월 주가 수익률(%). 월봉 4개 비교(현재 vs 3개월 전)."""
+    if not history:
+        return None
+    c = history.get("closes") or []
+    if len(c) >= 4 and c[-4]:
+        return round((c[-1] / c[-4] - 1) * 100, 1)
+    return None
+
+
+# 경기민감(사이클) 섹터 — 실적 정점에서 PER이 가장 낮아 보여 '저PER 착시'가 잦다.
+CYCLICAL_SECTORS = {"SSD/메모리", "AI 반도체", "에너지·원전"}
+
+
 def score(stocks: list[Stock]) -> None:
     """투자 해석 가이드를 반영한 섹터 가중 스코어링.
 
@@ -1075,11 +1092,43 @@ def score(stocks: list[Stock]) -> None:
 
             # 주가 추세(모멘텀) 반영 — 하락 추세(가치 함정)에 비대칭 페널티
             s.momentum = momentum_1y(s.history)
+            s.momentum_short = momentum_3m(s.history)
             if s.momentum is not None:
                 f = s.momentum / 100.0
                 s.composite += (max(-0.5, f) * 1.2) if f < 0 else (min(0.15, f) * 0.8)
                 if s.momentum < -15:
                     s.trend_warn = True
+            # 단기(3개월) 급락도 별도 반영 — '요즘 하락세' 경고 + 소폭 추가 페널티
+            if s.momentum_short is not None:
+                if s.momentum_short < -12:
+                    s.trend_warn = True
+                if s.momentum_short < 0:
+                    s.composite += max(-0.25, s.momentum_short / 100.0) * 0.5
+
+            # 경기민감주 정점 경고 — 사이클 섹터인데 저PER + 큰 주가상승이면 '이익 정점' 신호
+            if (section in CYCLICAL_SECTORS and s.per is not None and 0 < s.per < 10
+                    and s.momentum is not None and s.momentum > 60):
+                s.cycle_warn = True
+
+            # '앞으로 오른다' 렌즈(growth_score) — 저평가가 아니라 전망·성장·모멘텀 중심
+            g = []
+            # 이익 상향(추정PER < 현재PER) ·목표가 상승여력·투자의견
+            if s.forward_score:
+                g.append(("fwd", s.forward_score, 1.0))            # [-0.5,0.5]
+            # 추세추종: 1년 모멘텀(보상, 과열 캡)
+            if s.momentum is not None:
+                g.append(("mom", max(-0.5, min(0.6, s.momentum / 100.0)), 0.8))
+            # 이익 성장 추세(3년 순이익)
+            if s.income_trend and s.income_trend.get("trend"):
+                g.append(("trend", {"up": 0.3, "mixed": 0.0, "down": -0.3}
+                          .get(s.income_trend["trend"], 0.0), 1.0))
+            # PEG(성장 대비 합리적 밸류)
+            if s.peg is not None and s.peg > 0:
+                g.append(("peg", max(-0.3, min(0.4, (1.5 - s.peg) / 1.5)), 0.5))
+            # ROIC 품질
+            if s.roic is not None:
+                g.append(("roic", max(0.0, min(0.4, s.roic / 100.0)), 0.5))
+            s.growth_score = round(sum(v * w for _, v, w in g), 3) if g else 0.0
 
 
 def pick_top(stocks: list[Stock], n: int = 10) -> list[Stock]:
@@ -1091,6 +1140,16 @@ def pick_top(stocks: list[Stock], n: int = 10) -> list[Stock]:
     rest = sorted([s for s in stocks if s not in cands],
                   key=lambda s: s.composite, reverse=True)
     return (cands + rest)[:n]
+
+
+def pick_top_growth(stocks: list[Stock], n: int = 10) -> list[Stock]:
+    """'앞으로 오른다' 렌즈 — growth_score(전망·성장·모멘텀) 순 Top N.
+
+    저평가(싸다)가 아니라 ①이익 전망 상향 ②목표가 상승여력·투자의견 ③주가 모멘텀
+    ④이익 성장 추세 ⑤성장 대비 밸류(PEG)·ROIC 품질을 종합한다.
+    단, 1년 -15%↓ 하락추세(가치 함정)인 종목은 제외(추세 확인 전까지)."""
+    pool = [s for s in stocks if not s.trend_warn and s.growth_score]
+    return sorted(pool, key=lambda s: s.growth_score, reverse=True)[:n]
 
 
 def _quote_fields(s: Stock) -> dict:
@@ -1191,7 +1250,8 @@ def performance(hist: dict, stocks: list[Stock]) -> list[dict]:
 
 def build_dashboard(stocks: list[Stock], top: list[Stock], as_of: str,
                     news: Optional[dict], extra: Optional[list[Stock]] = None,
-                    deltas: Optional[dict] = None, perf: Optional[list] = None) -> dict:
+                    deltas: Optional[dict] = None, perf: Optional[list] = None,
+                    top_growth: Optional[list[Stock]] = None) -> dict:
     """메인 대시보드(검색·차트·추천여부·뉴스)용 JSON 데이터.
 
     stocks = AI 4개 섹션(정밀 분석), extra = KOSPI 시총상위(기본 시세).
@@ -1228,6 +1288,8 @@ def build_dashboard(stocks: list[Stock], top: list[Stock], as_of: str,
                     else "자본효율·성장성(ROIC·PEG) 중심",
             "level": level, "verdict": verdict, "rank": rank,
             "composite": round(s.composite, 3), "sectorRank": sec_rank.get(s.name),
+            "growthScore": round(s.growth_score, 3), "cycleWarn": s.cycle_warn,
+            "momentumShort": s.momentum_short,
             "ev_ebitda": s.ev_ebitda, "roic": s.roic, "peg": s.peg,
             "reasons": reasons, "safety": s.safety_flags, "supply": s.supply,
             "incomeTrend": s.income_trend,
@@ -1322,6 +1384,7 @@ def build_dashboard(stocks: list[Stock], top: list[Stock], as_of: str,
                         "profile": sector_profile(key), "members": names, "count": len(names)})
 
     return {"as_of": as_of, "top3": [t.name for t in top[:3]], "top10": [t.name for t in top],
+            "topGrowth": [t.name for t in (top_growth or [])],
             "rankDeltas": deltas or {}, "performance": perf or [],
             "generated_at": datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"),
             "stocks": out, "news": news or {}, "sectors": sectors,
@@ -1367,9 +1430,10 @@ def fmt(v: Optional[float], suffix: str = "") -> str:
 
 def build_markdown(stocks: list[Stock], top: list[Stock], as_of: str, mode: str,
                    news: Optional[dict] = None, deltas: Optional[dict] = None,
-                   perf: Optional[list] = None) -> str:
+                   perf: Optional[list] = None, top_growth: Optional[list[Stock]] = None) -> str:
     top3 = top[:3]
     deltas = deltas or {}
+    top_growth = top_growth or []
 
     def delta_str(name: str) -> str:
         if name not in deltas:
@@ -1423,17 +1487,49 @@ def build_markdown(stocks: list[Stock], top: list[Stock], as_of: str, mode: str,
     out.append("|:---|:---|:---:|---:|---:|---:|---:|---:|---:|---:|:---|")
     for i, s in enumerate(top, 1):
         mom = f"{s.momentum:+g}%" if s.momentum is not None else "—"
-        note = "[하락주의]" if s.trend_warn else ""
+        flags = []
+        if s.trend_warn:
+            flags.append("[하락주의]")
+        if s.cycle_warn:
+            flags.append("[사이클고점주의]")
         out.append(
             f"| {s.section} | **{i}. {s.name}** ({s.ticker}) | {delta_str(s.name)} | {s.composite:.3f} | "
             f"{fmt(s.per)} | {fmt(s.pbr)} | {fmt(s.ev_ebitda)} | "
-            f"{fmt(s.roic, '%')} | {fmt(s.peg)} | {mom} | {note} |"
+            f"{fmt(s.roic, '%')} | {fmt(s.peg)} | {mom} | {' '.join(flags)} |"
         )
     out.append("")
-    out.append("<sub>전체 종합점수 순. 섹션 편중 없이 점수 그대로 — 본인 판단으로 선택하세요. "
-               "`전일대비`는 어제 순위 대비 변동(▲상승/▼하락/NEW 신규), "
-               "`[하락주의]`는 최근 1년 주가 하락 추세(가치 함정 가능)입니다.</sub>")
+    out.append("<sub>전체 종합점수 순(<b>저평가=현재 동종업계 대비 싼 정도</b>, 예측 아님). "
+               "`전일대비`는 어제 순위 대비 변동(▲상승/▼하락/NEW), "
+               "`[하락주의]`=최근 1년/3개월 주가 하락(가치 함정 가능), "
+               "`[사이클고점주의]`=경기민감주의 저PER 착시(실적 정점 가능)입니다.</sub>")
     out.append("")
+
+    # --- 📈 앞으로 주목 — 성장·모멘텀 Top 10 (전망 중심, 저평가와 다른 렌즈) ---
+    if top_growth:
+        out.append("## 📈 앞으로 주목 — 성장·모멘텀 Top 10")
+        out.append("")
+        out.append("> '싸다(저평가)'가 아니라 **'앞으로 오를 동력'**에 초점을 둔 별도 순위입니다. "
+                   "①이익 전망 상향(추정PER<현재PER) ②목표가 상승여력·투자의견 ③주가 모멘텀 "
+                   "④이익 성장 추세 ⑤성장 대비 밸류(PEG)·ROIC 품질을 종합했습니다. "
+                   "하락 추세(가치 함정) 종목은 제외했습니다. **미래 수익을 보장하지 않습니다.**")
+        out.append("")
+        out.append("| 섹션 | 종목 | 성장점수 | 추정PER | 목표가상승여력 | 투자의견 | 1년주가 | 비고 |")
+        out.append("|:---|:---|---:|---:|---:|---:|---:|:---|")
+        for i, s in enumerate(top_growth, 1):
+            mom = f"{s.momentum:+g}%" if s.momentum is not None else "—"
+            px = (s.last_close or {}).get("price")
+            ups = f"{(s.target_price/px-1)*100:+.0f}%" if (s.target_price and px) else "—"
+            rec = f"{s.recomm_mean}" if s.recomm_mean else "—"
+            note = "[사이클고점주의]" if s.cycle_warn else ""
+            out.append(
+                f"| {s.section} | **{i}. {s.name}** ({s.ticker}) | {s.growth_score:.3f} | "
+                f"{fmt(s.forward_pe)} | {ups} | {rec} | {mom} | {note} |"
+            )
+        out.append("")
+        out.append("<sub>성장점수↑ = 전망·성장·모멘텀이 좋다는 뜻이지 '싸다'가 아닙니다. "
+                   "이미 많이 오른 종목이 많아 변동성·되돌림 위험이 큽니다. "
+                   "`투자의견`은 1(적극매수)~5(매도) 평균입니다.</sub>")
+        out.append("")
 
     # --- 성과 추적 (과거 Top 10의 현재까지 수익률) ---
     if perf:
@@ -1610,6 +1706,7 @@ def main() -> int:
     sanitize(stocks)
     score(stocks)
     top = pick_top(stocks, 10)
+    top_growth = pick_top_growth(stocks, 10)
 
     if args.mode == "sample":
         news = {sec: synth_news(sec) for sec in SECTION_ORDER}
@@ -1624,10 +1721,10 @@ def main() -> int:
     deltas = rank_deltas(hist)
     perf = performance(hist, stocks)
 
-    md = build_markdown(stocks, top, as_of, args.mode, news, deltas, perf)
+    md = build_markdown(stocks, top, as_of, args.mode, news, deltas, perf, top_growth)
 
     # 메인 대시보드 데이터(AI 정밀 + KOSPI 전 종목 검색)
-    dash = build_dashboard(stocks, top, as_of, news, kospi, deltas, perf)
+    dash = build_dashboard(stocks, top, as_of, news, kospi, deltas, perf, top_growth)
     if args.mode != "sample":
         print("[info] 저평가/AI 국내 종목 3년 순이익 추세 수집 중...", file=sys.stderr)
         enrich_income_trends(dash)

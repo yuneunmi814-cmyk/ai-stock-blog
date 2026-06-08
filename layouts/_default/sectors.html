@@ -25,9 +25,16 @@
     return '<span class="verdict ' + lvl + '">' + (s.verdict || "—") + "</span>";
   }
 
+  function flags(s) {
+    var f = "";
+    if (s.trendWarn) f += ' <span class="mini-warn" title="최근 1년/3개월 하락 추세 — 가치 함정 가능">▼하락주의</span>';
+    if (s.cycleWarn) f += ' <span class="mini-warn cyc" title="경기민감주 저PER 착시(실적 정점 가능)">⟳고점주의</span>';
+    return f;
+  }
+
   function row(name, s) {
     if (!s) return "";
-    var warn = s.trendWarn ? ' <span class="mini-warn" title="최근 1년 하락 추세">▼주의</span>' : "";
+    var warn = flags(s);
     return "<tr>" +
       "<td>" + (s.sectorRank || "—") + "</td>" +
       "<td class=\"sn\"><b>" + name + "</b> <span class=\"tk\">" + s.ticker + "</span>" + warn + "</td>" +
@@ -38,6 +45,31 @@
       "<td>" + num(s.roic, "%") + "</td>" +
       "<td>" + pct(s.momentum) + "</td>" +
       "<td>" + badge(s) + "</td></tr>";
+  }
+
+  function growthPanel(data) {
+    var names = data.topGrowth || [];
+    if (!names.length) return "";
+    var rows = names.map(function (n, i) {
+      var s = data.stocks[n]; if (!s) return "";
+      var px = s.lastClose ? s.lastClose.price : null;
+      var ups = (s.target && px) ? (((s.target / px - 1) * 100 >= 0 ? "+" : "") +
+                ((s.target / px - 1) * 100).toFixed(0) + "%") : "—";
+      return "<tr><td>" + (i + 1) + "</td>" +
+        "<td class=\"sn\"><b>" + n + "</b> <span class=\"tk\">" + s.ticker + "</span>" + flags(s) + "</td>" +
+        "<td>" + (s.growthScore != null ? s.growthScore.toFixed(3) : "—") + "</td>" +
+        "<td>" + num(s.forwardPE) + "</td>" +
+        "<td>" + ups + "</td>" +
+        "<td>" + pct(s.momentum) + "</td></tr>";
+    }).join("");
+    return '<details class="sector-acc growth-acc" open><summary>' +
+      '<span class="sec-emoji">📈</span><span class="sec-name">앞으로 주목 — 성장·모멘텀 Top ' + names.length + '</span>' +
+      '<span class="sec-count">전망 중심</span></summary>' +
+      '<p class="sec-desc">‘싸다’가 아니라 <b>이익 전망·목표가 상승여력·성장·모멘텀</b>을 종합한 순위입니다. ' +
+      '하락추세 종목은 제외. <b>미래 수익을 보장하지 않습니다.</b></p>' +
+      '<div class="table-scroll"><table class="sec-table"><thead><tr>' +
+      '<th>#</th><th>종목</th><th>성장점수</th><th>추정PER</th><th>목표가여력</th><th>1년주가</th>' +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div></details>';
   }
 
   function render(data) {
@@ -71,7 +103,8 @@
           (sec.emoji || "") + ' ' + sec.key + ' 섹터 자세히 보기 (지표·차트·수급) →</a></p>' +
         '</details>';
     }).join("");
-    document.getElementById("sectors-acc").innerHTML = html ||
+    document.getElementById("sectors-acc").innerHTML =
+      (growthPanel(data) + html) ||
       "<p class='chart-note'>섹터 데이터를 불러오지 못했습니다.</p>";
   }
 
