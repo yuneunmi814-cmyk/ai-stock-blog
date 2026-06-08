@@ -14,10 +14,12 @@
     </button>
     <a class="site-title" href="{{ site.Home.RelPermalink }}">{{ .Site.Title }}</a>
     <p class="site-tagline">{{ .Site.Params.description }}</p>
+    {{ $sectors := "sectors/" | relURL }}
     {{ $dash := "dashboard/" | relURL }}
     {{ $track := "track/" | relURL }}
     <nav class="site-nav">
       <a href="{{ site.Home.RelPermalink }}"{{ if .IsHome }} class="active"{{ end }}>일일 리포트</a>
+      <a href="{{ $sectors }}"{{ if hasPrefix .RelPermalink $sectors }} class="active"{{ end }}>섹터 전체</a>
       <a href="{{ $dash }}"{{ if eq .RelPermalink $dash }} class="active"{{ end }}>종목 검색</a>
       <a href="{{ $track }}"{{ if eq .RelPermalink $track }} class="active"{{ end }}>성과 기록</a>
     </nav>

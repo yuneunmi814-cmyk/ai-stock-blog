@@ -180,3 +180,47 @@ hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
 .modal-card p { margin: 0; line-height: 1.8; }
 .modal-close { position: absolute; top: 10px; right: 14px; border: none; background: none;
                font-size: 1.6rem; line-height: 1; cursor: pointer; color: #9ca3af; }
+
+/* ===== 섹터 전체(아코디언) ===== */
+.sector-acc { background: #fff; border: 1px solid var(--border); border-radius: 12px;
+              padding: 0; margin: 12px 0; }
+.sector-acc summary { cursor: pointer; display: flex; align-items: center; gap: 12px;
+                      flex-wrap: wrap; padding: 16px 18px; font-weight: 700; list-style: none; }
+.sector-acc summary::-webkit-details-marker { display: none; }
+.sector-acc summary::before { content: "▸"; color: var(--muted); font-size: .9rem; transition: transform .15s; }
+.sector-acc[open] summary::before { transform: rotate(90deg); }
+.sec-emoji { font-size: 1.35rem; }
+.sec-name { font-size: 1.1rem; }
+.sec-count { font-size: .8rem; color: var(--muted); background: var(--bg-soft);
+             border-radius: 999px; padding: 2px 10px; font-weight: 600; }
+.sec-best { margin-left: auto; font-size: .85rem; font-weight: 500; color: var(--muted); }
+.sec-best b { color: var(--accent); }
+.sec-desc { color: #6b7280; font-size: .9rem; margin: 0 18px 8px; }
+.table-scroll { overflow-x: auto; padding: 0 18px; }
+.sec-table { width: 100%; margin: 6px 0 4px; display: table; }
+.sec-table th { background: var(--bg-soft); font-size: .82rem; }
+.sec-table td, .sec-table th { padding: 7px 9px; }
+.sec-table .sn { text-align: left; }
+.tk { color: #9ca3af; font-size: .8rem; font-weight: 500; }
+.mini-warn { color: #b91c1c; font-size: .72rem; font-weight: 700; }
+.sec-cta { margin: 4px 18px 18px; }
+.sec-cta a { display: inline-block; font-weight: 600; text-decoration: none; color: var(--accent);
+             background: var(--bg-soft); border: 1px solid var(--border);
+             border-radius: 8px; padding: 8px 14px; }
+.sec-cta a:hover { background: #eef2ff; }
+
+/* ===== 섹터 상세 ===== */
+.sec-prof { font-size: .78rem; font-weight: 600; color: #6b7280; background: var(--bg-soft);
+            border: 1px solid var(--border); border-radius: 999px; padding: 3px 11px; vertical-align: middle; }
+.sector-news { background: var(--bg-soft); border: 1px solid var(--border);
+               border-radius: 12px; padding: 8px 18px 14px; margin: 18px 0; }
+.sector-news h3 { margin: 12px 0 6px; }
+.stock-card { border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin: 16px 0; }
+.sc-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sc-head h3 { margin: 0; }
+.sc-rank { background: var(--accent); color: #fff; font-weight: 800; font-size: .9rem;
+           width: 28px; height: 28px; border-radius: 50%; display: inline-flex;
+           align-items: center; justify-content: center; }
+.sc-score { margin-left: auto; font-weight: 700; color: #374151; font-variant-numeric: tabular-nums; }
+.sc-sub { margin: 16px 0 6px; }
+.metrics-table .avg-row td { color: #6b7280; background: var(--bg-soft); }

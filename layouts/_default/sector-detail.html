@@ -1,0 +1,190 @@
+{{ define "main" }}
+<p class="back"><a href="{{ "sectors/" | relURL }}">← 섹터 전체</a> · <a href="{{ site.Home.RelPermalink }}">홈</a></p>
+<div id="sec-head"></div>
+<p class="dash-asof" id="sec-asof"></p>
+
+<section id="sec-news" class="sector-news" hidden>
+  <h3>섹터 관련 기사</h3>
+  <ol id="sec-news-list" class="news-list"></ol>
+</section>
+
+<section id="sec-stocks"><p class="chart-note">불러오는 중…</p></section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+(function () {
+  var URL = "{{ "data/latest.json" | relURL }}";
+  var SECTOR = "{{ .Params.sector }}";
+  var charts = [];
+
+  function fmtNum(v) { return v == null ? "—" : Number(v).toLocaleString(); }
+  function num(v, suf) { return v == null ? "—" : v + (suf || ""); }
+  function priceUnit(cur) { return cur === "KRW" ? "원" : (cur && cur !== "USD" ? " " + cur : ""); }
+  function price(v, cur) {
+    if (v == null) return "—";
+    var p = (cur === "KRW") ? Math.round(v).toLocaleString() : Number(v).toLocaleString();
+    return p + priceUnit(cur);
+  }
+  function pct(v) {
+    if (v == null) return "—";
+    var c = v >= 0 ? "up" : "down";
+    return '<span class="' + c + '">' + (v > 0 ? "+" : "") + v + "%</span>";
+  }
+
+  function avgOf(members, S, key) {
+    var xs = members.map(function (n) { return S[n] ? S[n][key] : null; })
+                    .filter(function (v) { return v != null && v > 0; });
+    if (!xs.length) return null;
+    return xs.reduce(function (a, b) { return a + b; }, 0) / xs.length;
+  }
+
+  function quoteGrid(s) {
+    var cur = s.lastClose ? s.lastClose.cur : "USD";
+    var upside = "";
+    if (s.target && s.lastClose && s.lastClose.price) {
+      var u = ((s.target / s.lastClose.price - 1) * 100).toFixed(1);
+      upside = ' <span class="' + (u > 0 ? "up" : "down") + '">(' + (u > 0 ? "+" : "") + u + "%)</span>";
+    }
+    var rows = [
+      ["거래량", fmtNum(s.volume) + "주"],
+      ["시가총액", s.marketCap == null ? "—" : s.marketCap.toLocaleString() + (cur === "KRW" ? "조" : "B")],
+      ["52주 최고", price(s.week52High, cur)],
+      ["52주 최저", price(s.week52Low, cur)],
+      ["목표주가", price(s.target, cur) + upside],
+      ["1년 주가", pct(s.momentum)]
+    ];
+    if (s.forwardPE != null) rows.push(["추정 PER", s.forwardPE + "배"]);
+    return rows.map(function (r) {
+      return '<div class="q-item"><span class="q-k">' + r[0] + '</span><span class="q-v">' + r[1] + "</span></div>";
+    }).join("");
+  }
+
+  function metricsTable(s, avg, profile) {
+    var pri = profile === "hardware" ? ["pbr", "ev_ebitda"]
+            : (profile === "software" ? ["roic", "peg"] : []);
+    var defs = [["per", "PER"], ["pbr", "PBR"], ["ev_ebitda", "EV/EBITDA"], ["roic", "ROIC"], ["peg", "PEG"]];
+    var h = "<tr><th>구분</th>";
+    defs.forEach(function (d) {
+      var star = pri.indexOf(d[0]) >= 0 ? " ★" : "";
+      h += '<th><span class="term" data-term="' + d[0] + '">' + d[1] + "</span>" + star + "</th>";
+    });
+    h += "</tr><tr><td>종목</td>";
+    defs.forEach(function (d) {
+      var v = s[d[0]], suf = d[0] === "roic" ? "%" : "";
+      h += "<td>" + (v == null ? "—" : v + suf) + "</td>";
+    });
+    h += "</tr><tr class=\"avg-row\"><td>섹터 평균</td>";
+    defs.forEach(function (d) {
+      var a = avg[d[0]], suf = d[0] === "roic" ? "%" : "";
+      h += "<td>" + (a == null ? "—" : a.toFixed(2) + suf) + "</td>";
+    });
+    return h + "</tr>";
+  }
+
+  function drawPrice(canvas, s) {
+    if (!s.history) return;
+    charts.push(new Chart(canvas, {
+      type: "line",
+      data: { labels: s.history.dates, datasets: [{
+        label: "종가", data: s.history.closes, borderColor: "#2563eb",
+        backgroundColor: "rgba(37,99,235,.10)", fill: true, tension: .25, pointRadius: 0, borderWidth: 2 }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { ticks: { maxTicksLimit: 6 } },
+                  y: { ticks: { callback: function (v) { return v.toLocaleString(); } } } } }
+    }));
+  }
+
+  function drawSupply(canvas, sp) {
+    charts.push(new Chart(canvas, {
+      type: "bar",
+      data: { labels: sp.dates, datasets: [
+        { label: "외국인", data: sp.foreign, backgroundColor: "#2563eb" },
+        { label: "기관", data: sp.organ, backgroundColor: "#16a34a" },
+        { label: "개인", data: sp.individual, backgroundColor: "#f59e0b" }] },
+      options: { responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: "top" } },
+        scales: { y: { ticks: { callback: function (v) { return v.toLocaleString(); } } } } }
+    }));
+  }
+
+  function showClose(s) {
+    var lc = s.lastClose; if (!lc) return "";
+    var arrow = lc.dir === "up" ? "▲" : (lc.dir === "down" ? "▼" : "—");
+    var sign = lc.pct > 0 ? "+" : "";
+    return "전일 종가 <b>" + price(lc.price, lc.cur) + "</b> " +
+      '<span class="chg ' + lc.dir + '">' + arrow + " " + sign + lc.pct + "%</span>";
+  }
+
+  function render(data) {
+    var sec = (data.sectors || []).find(function (x) { return x.key === SECTOR; }) || {};
+    var members = sec.members || [];
+    var S = data.stocks || {};
+    document.getElementById("sec-head").innerHTML =
+      "<h1>" + (sec.emoji || "") + " " + SECTOR + " <span class=\"sec-prof\">" +
+      (sec.profile === "hardware" ? "자산가치 중심(PBR·EV/EBITDA)" : "성장·효율 중심(ROIC·PEG)") +
+      "</span></h1><p class=\"track-intro\">" + (sec.desc || "") + "</p>";
+    document.getElementById("sec-asof").textContent =
+      "기준일 " + data.as_of + (data.generated_at ? " · 갱신 " + data.generated_at : "") +
+      " · 섹터 내 종합점수 순 · 정량 분석이며 투자 권유가 아닙니다.";
+
+    // 섹터 뉴스
+    var news = (data.news && data.news[SECTOR]) || [];
+    if (news.length) {
+      document.getElementById("sec-news").hidden = false;
+      document.getElementById("sec-news-list").innerHTML = news.slice(0, 3).map(function (it) {
+        var meta = [it.source, it.date].filter(Boolean).join(" · ");
+        var t = (it.link && it.link !== "#")
+          ? '<a href="' + it.link + '" target="_blank" rel="noopener">' + it.title + "</a>" : it.title;
+        return "<li>" + t + (meta ? ' <span class="news-meta">— ' + meta + "</span>" : "") + "</li>";
+      }).join("");
+    }
+
+    var avg = { per: avgOf(members, S, "per"), pbr: avgOf(members, S, "pbr"),
+               ev_ebitda: avgOf(members, S, "ev_ebitda"), roic: avgOf(members, S, "roic"),
+               peg: avgOf(members, S, "peg") };
+
+    var wrap = document.getElementById("sec-stocks");
+    wrap.innerHTML = "";
+    if (!members.length) { wrap.innerHTML = "<p class='chart-note'>이 섹터의 종목 데이터가 없습니다.</p>"; return; }
+
+    members.forEach(function (name, i) {
+      var s = S[name]; if (!s) return;
+      var card = document.createElement("article");
+      card.className = "stock-card";
+      var hasSupply = !!s.supply;
+      card.innerHTML =
+        '<div class="sc-head">' +
+          '<span class="sc-rank">' + (s.sectorRank || (i + 1)) + "</span>" +
+          '<h3>' + name + ' <span class="tk">' + s.ticker + "</span></h3>" +
+          '<span class="verdict ' + (s.level || "neutral") + '">' + (s.verdict || "—") + "</span>" +
+          '<span class="sc-score">종합 ' + (s.composite != null ? s.composite.toFixed(3) : "—") + "</span>" +
+        "</div>" +
+        '<p class="last-close">' + showClose(s) + "</p>" +
+        (s.trendWarn ? '<p class="warn">[주의] 최근 1년 주가 ' + s.momentum +
+            "% 하락 추세 — 저평가가 가치 함정일 수 있어 추세·실적 확인이 필요합니다.</p>" : "") +
+        '<ul class="reasons">' + (s.reasons || []).map(function (r) { return "<li>" + r + "</li>"; }).join("") + "</ul>" +
+        '<div class="quote-grid">' + quoteGrid(s) + "</div>" +
+        '<table class="metrics-table">' + metricsTable(s, avg, sec.profile) + "</table>" +
+        '<p class="metric-note">★ = 이 섹터에서 가중치를 높게 보는 지표 · 섹터 평균은 구성종목 단순평균</p>' +
+        (s.history ? '<div class="chart-box chart-box-sm"><canvas></canvas></div>' : "") +
+        (hasSupply ? '<h4 class="sc-sub">수급 현황' +
+            (s.supply.foreignHold ? ' <small>(외국인 보유 ' + s.supply.foreignHold + ")</small>" : "") +
+            '</h4><div class="chart-box chart-box-sm"><canvas></canvas></div>' : "");
+      wrap.appendChild(card);
+
+      var canvases = card.querySelectorAll("canvas");
+      var ci = 0;
+      if (s.history) drawPrice(canvases[ci++], s);
+      if (hasSupply) drawSupply(canvases[ci++], s.supply);
+    });
+  }
+
+  fetch(URL, { cache: "no-store" }).then(function (r) { return r.json(); })
+    .then(render).catch(function () {
+      document.getElementById("sec-stocks").innerHTML =
+        "<p class='chart-note'>데이터를 불러오지 못했습니다.</p>";
+    });
+})();
+</script>
+{{ end }}
