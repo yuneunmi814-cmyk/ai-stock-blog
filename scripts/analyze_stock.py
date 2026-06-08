@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""AI 섹터 저평가 종목 탐색기 — 핵심 분석 로직.
+"""전력 인프라 섹터 저평가 종목 탐색기 — 핵심 분석 로직.
 
-4개 섹션(인프라/반도체, 클라우드/데이터센터, 모델/소프트웨어, AI 애플리케이션)
+3개 섹션(발전·전력공급, 전력 장비·인프라, 국내 중전기)
 전 종목의 [PER, PBR, EV/EBITDA, ROIC, PEG]를 수집/계산하고,
 섹션 내 동종업계 평균 대비 저평가 종목을 선별해
-'오늘의 AI 저평가 Top 3' Jekyll 포스트를 생성한다.
+'오늘의 전력 인프라 저평가 Top 10' Hugo 포스트를 생성한다.
 
 데이터 소스
   - 국내(.KS/.KQ, source="dart"): DART 공시 최신 분기 보고서 우선 + 시장가
@@ -37,52 +37,28 @@ HISTORY_PATH = ROOT / "static" / "data" / "history.json"  # 일별 Top 10 스냅
 KST = timezone(timedelta(hours=9))
 
 SECTION_ORDER = [
-    "인프라/반도체",
-    "클라우드/데이터센터",
-    "모델/소프트웨어",
-    "AI 애플리케이션",
+    "발전·전력공급",
+    "전력 장비·인프라",
+    "국내 중전기",
 ]
 
 # 분석 유니버스(섹션별 종목). live 모드의 수집 대상이기도 하다.
+# 국내 종목은 corp_code 미지정 — DART 마스터에서 자동 해석(fetch_dart).
 UNIVERSE: dict[str, list[dict]] = {
-    "인프라/반도체": [
-        {"name": "엔비디아", "ticker": "NVDA", "source": "yahoo"},
-        {"name": "AMD", "ticker": "AMD", "source": "yahoo"},
-        {"name": "TSMC", "ticker": "TSM", "source": "yahoo"},
-        {"name": "삼성전자", "ticker": "005930.KS", "source": "dart", "corp_code": "00126380"},
-        {"name": "SK하이닉스", "ticker": "000660.KS", "source": "dart", "corp_code": "00164779"},
-        {"name": "한미반도체", "ticker": "042700.KS", "source": "dart", "corp_code": "00161383"},
-        {"name": "브로드컴", "ticker": "AVGO", "source": "yahoo"},
-        {"name": "마이크론", "ticker": "MU", "source": "yahoo"},
-        {"name": "ASML", "ticker": "ASML", "source": "yahoo"},
+    "발전·전력공급": [
+        {"name": "컨스텔레이션 에너지", "ticker": "CEG", "source": "yahoo"},
+        {"name": "비스트라", "ticker": "VST", "source": "yahoo"},
+        {"name": "탈렌 에너지", "ticker": "TLN", "source": "yahoo"},
     ],
-    "클라우드/데이터센터": [
-        {"name": "마이크로소프트", "ticker": "MSFT", "source": "yahoo"},
-        {"name": "아마존", "ticker": "AMZN", "source": "yahoo"},
-        {"name": "알파벳", "ticker": "GOOGL", "source": "yahoo"},
-        {"name": "오라클", "ticker": "ORCL", "source": "yahoo"},
-        {"name": "이퀴닉스", "ticker": "EQIX", "source": "yahoo"},
-        {"name": "네이버", "ticker": "035420.KS", "source": "dart", "corp_code": "00266961"},
-        {"name": "코어위브", "ticker": "CRWV", "source": "yahoo"},
+    "전력 장비·인프라": [
+        {"name": "버티브", "ticker": "VRT", "source": "yahoo"},
+        {"name": "GE 버노바", "ticker": "GEV", "source": "yahoo"},
+        {"name": "콴타 서비시스", "ticker": "PWR", "source": "yahoo"},
     ],
-    "모델/소프트웨어": [
-        {"name": "메타", "ticker": "META", "source": "yahoo"},
-        {"name": "팔란티어", "ticker": "PLTR", "source": "yahoo"},
-        {"name": "C3.ai", "ticker": "AI", "source": "yahoo"},
-        {"name": "카카오", "ticker": "035720.KS", "source": "dart", "corp_code": "00258801"},
-        {"name": "스노우플레이크", "ticker": "SNOW", "source": "yahoo"},
-        {"name": "SAP", "ticker": "SAP", "source": "yahoo"},
-        {"name": "IBM", "ticker": "IBM", "source": "yahoo"},
-    ],
-    "AI 애플리케이션": [
-        {"name": "어도비", "ticker": "ADBE", "source": "yahoo"},
-        {"name": "세일즈포스", "ticker": "CRM", "source": "yahoo"},
-        {"name": "서비스나우", "ticker": "NOW", "source": "yahoo"},
-        {"name": "듀오링고", "ticker": "DUOL", "source": "yahoo"},
-        {"name": "더존비즈온", "ticker": "012510.KS", "source": "dart", "corp_code": "00172291"},
-        {"name": "테슬라", "ticker": "TSLA", "source": "yahoo"},
-        {"name": "크라우드스트라이크", "ticker": "CRWD", "source": "yahoo"},
-        {"name": "인튜이티브서지컬", "ticker": "ISRG", "source": "yahoo"},
+    "국내 중전기": [
+        {"name": "효성중공업", "ticker": "298040.KS", "source": "dart"},
+        {"name": "HD현대일렉트릭", "ticker": "267260.KS", "source": "dart"},
+        {"name": "LS일렉트릭", "ticker": "010120.KS", "source": "dart"},
     ],
 }
 
@@ -415,10 +391,9 @@ def collect_kospi(limit: Optional[int] = None, chart_top: int = 150) -> list[Sto
 
 
 SECTION_NEWS_QUERY = {
-    "인프라/반도체": "AI 반도체 OR HBM OR 엔비디아 OR 파운드리",
-    "클라우드/데이터센터": "AI 클라우드 OR 데이터센터 OR AWS OR Azure",
-    "모델/소프트웨어": "AI 모델 OR LLM OR 생성형 AI OR 오픈AI",
-    "AI 애플리케이션": "AI 에이전트 OR AI 서비스 OR AI 애플리케이션",
+    "발전·전력공급": "데이터센터 전력 OR 전력 수요 OR 원전 OR SMR OR 발전사",
+    "전력 장비·인프라": "전력 인프라 OR 데이터센터 전력 OR 송전 OR 전력망 OR 전력장비",
+    "국내 중전기": "변압기 OR 효성중공업 OR HD현대일렉트릭 OR LS일렉트릭 OR 전력기기",
 }
 
 
@@ -769,6 +744,9 @@ def fetch_dart(name: str, ticker: str, section: str, corp_code: str = "") -> Sto
     """
     base = fetch_yahoo(name, ticker, section)  # 시장가 + 결측 폴백용
     api_key = os.environ.get("DART_API_KEY")
+    if api_key and not corp_code:  # corp_code 미지정 시 DART 마스터에서 자동 해석
+        _load_corp_map()
+        corp_code = _CORP_MAP.get(ticker.split(".")[0], "")
     if not api_key or not corp_code:
         base.source = "dart(폴백:yahoo)"
         return base
@@ -933,9 +911,9 @@ def section_peer_avg(stocks: list[Stock], metric: str) -> Optional[float]:
     return sum(vals) / len(vals)
 
 
-# 섹터 성격 — 하드웨어는 유형자산(공장·장비·데이터센터) 가치가 크고,
-# 소프트웨어/AI 모델은 무형자산이 핵심이라 자본효율·성장성이 더 중요하다.
-HARDWARE_SECTORS = {"인프라/반도체", "클라우드/데이터센터"}
+# 섹터 성격 — '하드웨어'(자산집약: 발전소·변압기 등 유형자산 가치 중시, PBR·EV/EBITDA),
+# '소프트웨어'(성장·자본효율 중시: ROIC·PEG). 전력장비/건설은 수주 성장이 핵심이라 후자로 둔다.
+HARDWARE_SECTORS = {"발전·전력공급", "국내 중전기"}
 
 # 섹터별 멀티플 할인 가중치(value_score): 하드웨어는 PBR·EV/EBITDA 중시
 DISC_WEIGHTS = {
@@ -1331,10 +1309,10 @@ def build_markdown(stocks: list[Stock], top: list[Stock], as_of: str, mode: str,
     # --- Front matter (Hugo / YAML) ---
     tags = [t.name for t in top3] + ["저평가", "밸류에이션"]
     out.append("---")
-    out.append(f'title: "[{as_of}] 오늘의 AI 저평가 Top 10"')
+    out.append(f'title: "[{as_of}] 오늘의 전력 인프라 저평가 Top 10"')
     out.append(f"date: {as_of}T07:00:00+09:00")
     out.append("draft: false")
-    out.append("categories: [\"AI투자\", \"데일리리포트\"]")
+    out.append("categories: [\"전력인프라투자\", \"데일리리포트\"]")
     out.append(f"tags: [{', '.join(json.dumps(t, ensure_ascii=False) for t in tags)}]")
     out.append(f"top3: [{', '.join(json.dumps(t.name, ensure_ascii=False) for t in top3)}]")
     out.append("---")
@@ -1357,8 +1335,8 @@ def build_markdown(stocks: list[Stock], top: list[Stock], as_of: str, mode: str,
                + "</p>")
     out.append("")
 
-    # --- 오늘의 AI 저평가 Top 10 (전체 종합점수 순) ---
-    out.append("## 오늘의 AI 저평가 Top 10")
+    # --- 오늘의 전력 인프라 저평가 Top 10 (전체 종합점수 순) ---
+    out.append("## 오늘의 전력 인프라 저평가 Top 10")
     out.append("")
     out.append("| 섹션 | 종목 | 전일대비 | 종합점수 | PER | PBR | EV/EBITDA | ROIC | PEG | 1년주가 | 비고 |")
     out.append("|:---|:---|:---:|---:|---:|---:|---:|---:|---:|---:|:---|")
