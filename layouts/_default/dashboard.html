@@ -105,14 +105,17 @@
     }).join("");
   }
 
+  var VW = { capital: { value: .50, quality: .25 }, growth: { value: .35, quality: .30 },
+             cyclical: { value: .35, quality: .20 } };
+  var M2F = { per: "value", pbr: "value", ev_ebitda: "value", roic: "quality", peg: "growth" };
   function renderMetrics(s) {
-    var pri = s.profile === "hardware" ? ["pbr", "ev_ebitda"]
-            : (s.profile === "software" ? ["roic", "peg"] : []);
-    document.getElementById("d-metric-note").style.display = pri.length ? "block" : "none";
+    var w = VW[s.profile3] || null;
+    function isPri(m) { return w ? (w[M2F[m]] || 0) >= 0.25 : false; }
+    document.getElementById("d-metric-note").style.display = w ? "block" : "none";
     var defs = [["per", "PER"], ["pbr", "PBR"], ["ev_ebitda", "EV/EBITDA"], ["roic", "ROIC"], ["peg", "PEG"]];
     var h = "<tr>";
     defs.forEach(function (d) {
-      var star = pri.indexOf(d[0]) >= 0 ? " ★" : "";
+      var star = isPri(d[0]) ? " ★" : "";
       h += '<th><span class="term" data-term="' + d[0] + '">' + d[1] + "</span>" + star + "</th>";
     });
     h += "</tr><tr>";

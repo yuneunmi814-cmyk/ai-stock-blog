@@ -59,13 +59,29 @@
     }).join("");
   }
 
-  function metricsTable(s, avg, profile) {
-    var pri = profile === "hardware" ? ["pbr", "ev_ebitda"]
-            : (profile === "software" ? ["roic", "peg"] : []);
+  var FLABEL = { value: "밸류", quality: "퀄리티", momentum: "모멘텀", forward: "전망", growth: "성장" };
+  var M2F = { per: "value", pbr: "value", ev_ebitda: "value", roic: "quality", peg: "growth" };
+
+  function weightReadout(sec) {
+    var w = sec.weights; if (!w) return "";
+    var order = Object.keys(w).sort(function (a, b) { return w[b] - w[a]; });
+    var chips = order.map(function (k) {
+      var pctv = Math.round(w[k] * 100);
+      var hot = w[k] >= 0.25;
+      return '<span class="wchip' + (hot ? " hot" : "") + '">' + FLABEL[k] + " " + pctv + "%</span>";
+    }).join("");
+    return '<div class="weight-box"><div class="wb-title">이 섹터의 <b>저평가 점수 가중치</b> ' +
+      '<small>(섹터 성격에 따라 비중을 달리합니다)</small></div>' +
+      '<div class="wchips">' + chips + "</div></div>";
+  }
+
+  function metricsTable(s, avg, weights) {
+    weights = weights || {};
+    function starred(m) { return (weights[M2F[m]] || 0) >= 0.25; }
     var defs = [["per", "PER"], ["pbr", "PBR"], ["ev_ebitda", "EV/EBITDA"], ["roic", "ROIC"], ["peg", "PEG"]];
     var h = "<tr><th>구분</th>";
     defs.forEach(function (d) {
-      var star = pri.indexOf(d[0]) >= 0 ? " ★" : "";
+      var star = starred(d[0]) ? " ★" : "";
       h += '<th><span class="term" data-term="' + d[0] + '">' + d[1] + "</span>" + star + "</th>";
     });
     h += "</tr><tr><td>종목</td>";
@@ -143,8 +159,10 @@
     var S = data.stocks || {};
     document.getElementById("sec-head").innerHTML =
       "<h1>" + (sec.emoji || "") + " " + SECTOR + " <span class=\"sec-prof\">" +
-      (sec.profile === "hardware" ? "자산가치 중심(PBR·EV/EBITDA)" : "성장·효율 중심(ROIC·PEG)") +
-      "</span></h1><p class=\"track-intro\">" + (sec.desc || "") + "</p>";
+      (sec.profileLabel || "") + "</span></h1>" +
+      "<p class=\"track-intro\">" + (sec.desc || "") +
+      (sec.lens ? '<br><b>섹터 성격:</b> ' + sec.lens : "") + "</p>" +
+      weightReadout(sec);
     document.getElementById("sec-asof").textContent =
       "기준일 " + data.as_of + (data.generated_at ? " · 갱신 " + data.generated_at : "") +
       " · 섹터 내 종합점수 순 · 정량 분석이며 투자 권유가 아닙니다.";
@@ -193,8 +211,8 @@
         '<ul class="reasons">' + (s.reasons || []).map(function (r) { return "<li>" + r + "</li>"; }).join("") + "</ul>" +
         factorBars(s) +
         '<div class="quote-grid">' + quoteGrid(s) + "</div>" +
-        '<table class="metrics-table">' + metricsTable(s, avg, sec.profile) + "</table>" +
-        '<p class="metric-note">★ = 이 섹터에서 가중치를 높게 보는 지표 · 섹터 평균은 구성종목 단순평균</p>' +
+        '<table class="metrics-table">' + metricsTable(s, avg, sec.weights) + "</table>" +
+        '<p class="metric-note">★ = 이 섹터 저평가 점수에서 비중 높은 팩터의 지표(위 가중치 기준) · 섹터 평균은 구성종목 단순평균</p>' +
         (s.history ? '<div class="chart-box chart-box-sm"><canvas></canvas></div>' : "") +
         (hasSupply ? '<h4 class="sc-sub">수급 현황' +
             (s.supply.foreignHold ? ' <small>(외국인 보유 ' + s.supply.foreignHold + ")</small>" : "") +

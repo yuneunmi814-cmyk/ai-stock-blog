@@ -1025,6 +1025,16 @@ GROWTH_FACTOR_W = {
 }
 
 
+PROFILE3_LABEL = {"capital": "자산집약형", "cyclical": "경기민감형", "growth": "성장형"}
+PROFILE3_LENS = {
+    "capital": "자산가치·현금흐름 중심 — 밸류(PBR·EV/EBITDA) 비중↑",
+    "cyclical": "사이클 주의 — 트레일링 저PER보다 이익전망(추정치) 비중↑",
+    "growth": "성장·자본효율 중심 — 퀄리티(ROIC)·모멘텀 비중↑",
+}
+FACTOR_LABEL = {"value": "밸류", "quality": "퀄리티", "momentum": "모멘텀",
+                "forward": "전망", "growth": "성장"}
+
+
 def profile3(section: str) -> str:
     return SECTOR_PROFILE3.get(section, "growth")
 
@@ -1341,10 +1351,11 @@ def build_dashboard(stocks: list[Stock], top: list[Stock], as_of: str,
         if s.safety_flags:
             reasons.append("안전마진: " + ", ".join(s.safety_flags))
         prof = sector_profile(s.section)
+        p3 = profile3(s.section)
         out[s.name] = {
-            "ticker": s.ticker, "section": s.section, "profile": prof, "ai": True,
-            "lens": "유형자산(PBR·EV/EBITDA) 중심" if prof == "hardware"
-                    else "자본효율·성장성(ROIC·PEG) 중심",
+            "ticker": s.ticker, "section": s.section, "profile": prof,
+            "profile3": p3, "ai": True,
+            "lens": PROFILE3_LENS[p3],
             "level": level, "verdict": verdict, "rank": rank,
             "composite": round(s.composite, 3), "sectorRank": sec_rank.get(s.name),
             "growthScore": round(s.growth_score, 3), "cycleWarn": s.cycle_warn,
@@ -1441,9 +1452,13 @@ def build_dashboard(stocks: list[Stock], top: list[Stock], as_of: str,
         members = _by_sec.get(key, [])
         names = [s.name for s in sorted(members, key=lambda x: sec_rank.get(x.name, 99))]
         meta = SECTOR_META.get(key, {})
+        p3 = profile3(key)
         sectors.append({"key": key, "emoji": meta.get("emoji", ""),
                         "slug": meta.get("slug", ""), "desc": meta.get("desc", ""),
-                        "profile": sector_profile(key), "members": names, "count": len(names)})
+                        "profile": sector_profile(key), "profile3": p3,
+                        "profileLabel": PROFILE3_LABEL[p3], "lens": PROFILE3_LENS[p3],
+                        "weights": VALUE_FACTOR_W[p3], "wgrowth": GROWTH_FACTOR_W[p3],
+                        "members": names, "count": len(names)})
 
     return {"as_of": as_of, "top3": [t.name for t in top[:3]], "top10": [t.name for t in top],
             "topGrowth": [t.name for t in (top_growth or [])],
