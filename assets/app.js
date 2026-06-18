@@ -102,6 +102,7 @@ function renderCards(key, sector) {
 
 function card(s, currency, label, rank) {
   const sector = s.sector ? `<span class="chip">${esc(s.sector)}</span>` : "";
+  const negEq = s.neg_equity ? `<span class="chip warn">자본잠식</span>` : "";
   const fwd = s.forward_per ? `<span class="chip">선행PER ${num(s.forward_per, 1)}</span>` : "";
   return `
     <article class="card">
@@ -109,7 +110,7 @@ function card(s, currency, label, rank) {
         <div class="rank r${rank}">${rank}</div>
         <div class="name-block">
           <div class="name">${s.name}<span class="ticker">${s.ticker}</span></div>
-          <div class="sub">${sector}${fwd}</div>
+          <div class="sub">${sector}${negEq}${fwd}</div>
         </div>
         <div class="price">
           <span class="now">${price(s.price, currency)}</span>
@@ -125,8 +126,12 @@ function card(s, currency, label, rank) {
 
       <div class="metrics">
         ${metric("PER", mult(s.per), s.per_pct, "저평가")}
-        ${metric("PBR", mult(s.pbr), s.pbr_pct, "저평가")}
-        ${metric("ROE", s.roe != null ? num(s.roe, 1) + "%" : "—", s.roe_pct, "재무")}
+        ${s.neg_equity
+          ? metric("PBR", `<span class="na">측정불가</span>`, null, "")
+          : metric("PBR", mult(s.pbr), s.pbr_pct, "저평가")}
+        ${s.neg_equity
+          ? metric("ROE", `<span class="na">측정불가</span>`, null, "")
+          : metric("ROE", s.roe != null ? num(s.roe, 1) + "%" : "—", s.roe_pct, "재무")}
         ${idioMetric(s)}
       </div>
 
@@ -176,13 +181,19 @@ function kidExplain(s, label, rank) {
     `${Math.round(s.per)}년이면 회사를 산 값을 다 뽑는다'는 뜻이라, 숫자가 작을수록 싼 거예요 ` +
     `(${label}에서 싼 쪽 ${cheap}%).`
   );
-  if (s.pbr != null && s.pbr < 1.2) {
+  if (s.neg_equity) {
+    pts.push(
+      `🏦 이 회사는 그동안 번 돈으로 자기 회사 주식을 많이 되사들여서, 장부상 '회사 재산(자본)'이 ` +
+      `마이너스로 적혀요. 망해서가 아니라 주주에게 돈을 많이 돌려준 거예요. 그래서 PBR·ROE로는 잴 수 없어 ` +
+      `PER과 주가 흐름 위주로 평가했어요.`
+    );
+  } else if (s.pbr != null && s.pbr < 1.2) {
     pts.push(
       `🏦 게다가 회사가 가진 재산(건물·현금 등)값과 비슷하거나 더 싸게 팔려요 ` +
       `(PBR ${num(s.pbr, 2)}배 — 1배보다 작으면 재산보다도 싸다는 뜻이에요).`
     );
   }
-  if (s.roe != null) {
+  if (s.roe != null && !s.neg_equity) {
     pts.push(
       `🏆 그런데 장사는 야무져요. 가진 돈 100원으로 1년에 약 ${Math.round(s.roe)}원을 버는 똑똑한 회사거든요 (ROE ${num(s.roe, 1)}%).`
     );

@@ -111,6 +111,8 @@ body {
   font-size: .72rem; font-weight: 600; color: var(--ink-soft);
   background: #f1f3f8; border-radius: 999px; padding: 2px 9px;
 }
+.chip.warn { background: #fff3e0; color: #b3640a; }
+.metric .v .na { font-size: .8rem; font-weight: 600; color: var(--ink-soft); }
 .price { margin-left: auto; text-align: right; white-space: nowrap; }
 .price .now { font-weight: 700; font-size: 1.02rem; }
 .price .cap { display: block; font-size: .74rem; color: var(--ink-soft); }

@@ -52,6 +52,7 @@ W_PER, W_PBR, W_ROE, W_IDIO = 0.25, 0.15, 0.25, 0.35
 #   저평가 40%(PER25+PBR15) · 재무 양호 25%(ROE) · 비체계적 과매도 35%
 PER_RANGE = (0.0, 60.0)   # 흑자 + 과도한 고평가 제외
 PBR_RANGE = (0.0, 20.0)
+ROE_CLAMP = 60.0          # ROE 이상치(자본 얇아 부풀려진 값) 상한 — 백분위 왜곡 방지
 HIST_PERIOD = "6mo"       # 위험분해 회귀 구간
 TOP_N = 3
 
@@ -90,6 +91,7 @@ class Stock:
     roe_pct: float | None = None
     idio_pct: float | None = None
     value_score: float | None = None
+    neg_equity: bool = False           # 자사주매입 등으로 장부 자본 마이너스(자본잠식)
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -306,22 +308,42 @@ def _assign_pct(stocks: list[Stock], attr: str, higher_better: bool, out: str) -
 
 
 def score_market(stocks: list[Stock]) -> list[Stock]:
-    """관문 ①·② 하드필터 → 4지표 백분위 → 가치점수. 점수 내림차순 전체 풀 반환."""
-    pool = [
-        s for s in stocks
-        if s.per is not None and PER_RANGE[0] < s.per <= PER_RANGE[1]
-        and s.pbr is not None and PBR_RANGE[0] < s.pbr <= PBR_RANGE[1]
-        and s.roe is not None and s.roe > 0
-    ]
-    _assign_pct(pool, "per", higher_better=False, out="per_pct")   # 낮을수록 저평가
-    _assign_pct(pool, "pbr", higher_better=False, out="pbr_pct")
-    _assign_pct(pool, "roe", higher_better=True, out="roe_pct")    # 높을수록 우량
-    _assign_pct(pool, "idio_6m", higher_better=False, out="idio_pct")  # 낮을수록(음) 과매도
+    """관문 ①·② 필터 → 4지표 백분위 → 가치점수. 점수 내림차순 전체 풀 반환.
+
+    자사주매입 등으로 장부 자본이 마이너스(자본잠식)인 '흑자' 기업은 PBR·ROE 수식이
+    깨지므로 탈락시키지 않고 포함하되, 그 두 지표는 중립(50)으로 처리하고 PER·비체계적
+    위주로 평가한다. ROE 이상치(자본이 얇아 부풀려진 값)는 ROE_CLAMP로 상한 처리.
+    """
+    def profitable(s: Stock) -> bool:
+        return (s.eps is not None and s.eps > 0) or (s.roe is not None and s.roe > 0)
+
+    pool: list[Stock] = []
+    for s in stocks:
+        if s.per is None or not (PER_RANGE[0] < s.per <= PER_RANGE[1]):
+            continue
+        if not profitable(s):
+            continue
+        s.neg_equity = s.pbr is None or s.pbr <= 0           # 장부 자본 마이너스/0
+        if not s.neg_equity and not (PBR_RANGE[0] < s.pbr <= PBR_RANGE[1]):
+            continue                                          # 정상기업인데 PBR 과도 → 제외
+        pool.append(s)
+
+    healthy = [s for s in pool if not s.neg_equity]
+    _assign_pct(pool, "per", higher_better=False, out="per_pct")          # 낮을수록 저평가
+    _assign_pct(healthy, "pbr", higher_better=False, out="pbr_pct")        # 정상기업끼리만
+    for s in pool:                                                         # ROE 이상치 클램프
+        s.roe_rank = min(s.roe, ROE_CLAMP) if (not s.neg_equity and s.roe and s.roe > 0) else None
+    _assign_pct([s for s in pool if s.roe_rank is not None], "roe_rank", higher_better=True, out="roe_pct")
+    _assign_pct(pool, "idio_6m", higher_better=False, out="idio_pct")      # 낮을수록(음) 과매도
+
     for s in pool:
-        pp = lambda v: v if v is not None else 50.0  # noqa: E731
+        if s.pbr_pct is None:   # 자본잠식 → PBR 중립
+            s.pbr_pct = 50.0
+        if s.roe_pct is None:   # 자본잠식/ROE불가 → 품질 중립
+            s.roe_pct = 50.0
         s.value_score = round(
-            W_PER * pp(s.per_pct) + W_PBR * pp(s.pbr_pct)
-            + W_ROE * pp(s.roe_pct) + W_IDIO * pp(s.idio_pct), 1
+            W_PER * (s.per_pct if s.per_pct is not None else 50.0) + W_PBR * s.pbr_pct
+            + W_ROE * s.roe_pct + W_IDIO * (s.idio_pct if s.idio_pct is not None else 50.0), 1
         )
     pool.sort(key=lambda s: s.value_score or 0, reverse=True)
     return pool
@@ -408,7 +430,7 @@ def _market(label, flag, currency, universe, stocks) -> dict:
 
 
 def _export(s: Stock) -> dict:
-    return {k: v for k, v in asdict(s).items() if v is not None and v != ""}
+    return {k: v for k, v in asdict(s).items() if v is not None and v != "" and v is not False}
 
 
 def _update_index() -> None:
