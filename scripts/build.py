@@ -53,6 +53,20 @@ W_PER, W_PBR, W_ROE, W_IDIO = 0.25, 0.15, 0.25, 0.35
 PER_RANGE = (0.0, 60.0)   # 흑자 + 과도한 고평가 제외
 PBR_RANGE = (0.0, 20.0)
 ROE_CLAMP = 60.0          # ROE 이상치(자본 얇아 부풀려진 값) 상한 — 백분위 왜곡 방지
+
+# AI 관련 업종만 분석 (반도체·SW·하드웨어·전자·인터넷). 그 외 업종은 유니버스에서 제외.
+US_AI_SUBINDUSTRIES = {
+    "Semiconductors", "Semiconductor Materials & Equipment",
+    "Technology Hardware, Storage & Peripherals", "Electronic Components",
+    "Electronic Equipment & Instruments", "Electronic Manufacturing Services",
+    "Communications Equipment", "Application Software", "Systems Software",
+    "IT Consulting & Other Services", "Internet Services & Infrastructure",
+    "Interactive Media & Services", "Technology Distributors",
+}
+KR_AI_INDUSTRIES = {
+    "반도체와반도체장비", "전자장비와기기", "컴퓨터와주변기기", "소프트웨어", "IT서비스",
+    "디스플레이장비및부품", "디스플레이패널", "통신장비", "양방향미디어와서비스", "핸드셋",
+}
 HIST_PERIOD = "6mo"       # 위험분해 회귀 구간
 TOP_N = 3
 
@@ -107,8 +121,11 @@ def sp500_universe() -> list[tuple[str, str, str]]:
     df = pd.read_html(StringIO(html))[0]
     out = []
     for _, row in df.iterrows():
+        sub = str(row["GICS Sub-Industry"]).strip()
+        if sub not in US_AI_SUBINDUSTRIES:        # AI 관련 업종만
+            continue
         sym = str(row["Symbol"]).strip().replace(".", "-")  # BRK.B -> BRK-B
-        out.append((sym, str(row["Security"]).strip(), str(row["GICS Sector"]).strip()))
+        out.append((sym, str(row["Security"]).strip(), sub))
     return out
 
 
@@ -357,12 +374,12 @@ def build(date_str: str, limit: int | None) -> None:
     session.headers.update(UA)
     markets = {}
 
-    # ── 미국 ──
-    print("· S&P 500 구성종목 로딩…", flush=True)
+    # ── 미국 (S&P 500 중 AI 관련 업종만) ──
+    print("· S&P 500 AI 관련 종목 로딩…", flush=True)
     us_univ = sp500_universe()
     if limit:
         us_univ = us_univ[:limit]
-    print(f"  {len(us_univ)}개 펀더멘털 수집(yfinance)…", flush=True)
+    print(f"  AI 관련 {len(us_univ)}개 펀더멘털 수집(yfinance)…", flush=True)
     us_stocks: list[Stock] = []
     with ThreadPoolExecutor(max_workers=12) as ex:
         for f in as_completed([ex.submit(fetch_us, t, n, s) for t, n, s in us_univ]):
@@ -371,27 +388,26 @@ def build(date_str: str, limit: int | None) -> None:
                 us_stocks.append(r)
     print(f"  펀더멘털 {len(us_stocks)}/{len(us_univ)} · 가격이력 회귀…", flush=True)
     add_idiosyncratic(us_stocks, "^GSPC", suffix="")
-    markets["sp500"] = _market("S&P 500", "🇺🇸", "USD", len(us_univ), us_stocks)
+    markets["sp500"] = _market("S&P 500", "USD", len(us_univ), us_stocks)
 
-    # ── 한국 ──
-    print("· KOSPI 200 구성종목 로딩…", flush=True)
+    # ── 한국 (KOSPI 200 중 AI 관련 업종만) ──
+    print("· KOSPI 200 구성종목 + 업종 로딩…", flush=True)
     kr_codes = kospi200_universe(session)
+    ind_map = kospi_industry_map(session)
+    ai_codes = [c for c in kr_codes if ind_map.get(c) in KR_AI_INDUSTRIES]
     if limit:
-        kr_codes = kr_codes[:limit]
-    print(f"  {len(kr_codes)}개 펀더멘털 수집(네이버)…", flush=True)
+        ai_codes = ai_codes[:limit]
+    print(f"  AI 관련 {len(ai_codes)}개 펀더멘털 수집(네이버)…", flush=True)
     kr_stocks: list[Stock] = []
     with ThreadPoolExecutor(max_workers=8) as ex:
-        for f in as_completed([ex.submit(fetch_kr, c, session) for c in kr_codes]):
+        for f in as_completed([ex.submit(fetch_kr, c, session) for c in ai_codes]):
             r = f.result()
             if r:
+                r.sector = ind_map.get(r.ticker, "")
                 kr_stocks.append(r)
-    print(f"  펀더멘털 {len(kr_stocks)}/{len(kr_codes)} · 가격이력 회귀…", flush=True)
+    print(f"  펀더멘털 {len(kr_stocks)}/{len(ai_codes)} · 가격이력 회귀…", flush=True)
     add_idiosyncratic(kr_stocks, "^KS11", suffix=".KS")
-    print("  업종 태그 매핑(네이버 업종)…", flush=True)
-    ind_map = kospi_industry_map(session)
-    for s in kr_stocks:
-        s.sector = ind_map.get(s.ticker, "")
-    markets["kospi200"] = _market("KOSPI 200", "🇰🇷", "KRW", len(kr_codes), kr_stocks)
+    markets["kospi200"] = _market("KOSPI 200", "KRW", len(ai_codes), kr_stocks)
 
     payload = {
         "date": date_str,
@@ -406,8 +422,10 @@ def build(date_str: str, limit: int | None) -> None:
             "model": "종목수익률 = α + β·시장수익률 + ε  →  비체계적 = 종목수익률 − β·시장수익률",
             "weights": {"PER": W_PER, "PBR": W_PBR, "ROE": W_ROE, "비체계적과매도": W_IDIO},
             "filter": "PER 0~60배 · PBR 0~20배 · ROE>0 (적자·이상치 제외)",
-            "note": "네 지표를 각 지수 내 백분위로 환산해 가중합한 '가치점수' 상위 Top 3. "
-                    "③은 6개월 일간수익률을 시장지수(미국 S&P500, 한국 KOSPI)에 회귀해 β로 시장요인을 제거한 뒤 남는 고유 하락폭.",
+            "universe": "분석 대상은 AI 관련 업종(반도체·SW·하드웨어·전자·인터넷 등)으로 한정.",
+            "note": "네 지표를 각 시장 내 백분위로 환산해 가중합한 '가치점수' 상위 Top 3. "
+                    "③은 6개월 일간수익률을 시장지수(미국 S&P500, 한국 KOSPI)에 회귀해 β로 시장요인을 제거한 뒤 남는 고유 하락폭. "
+                    "자사주매입으로 자본이 마이너스인 흑자기업은 PBR·ROE를 중립 처리해 포함.",
         },
         "markets": markets,
     }
@@ -418,11 +436,11 @@ def build(date_str: str, limit: int | None) -> None:
     _update_index()
 
 
-def _market(label, flag, currency, universe, stocks) -> dict:
+def _market(label, currency, universe, stocks) -> dict:
     pool = score_market(stocks)
     sectors = sorted({s.sector for s in pool if s.sector})
     return {
-        "label": label, "flag": flag, "currency": currency,
+        "label": label, "currency": currency,
         "universe": universe, "scored": len(pool),
         "sectors": sectors,
         "stocks": [_export(s) for s in pool],
