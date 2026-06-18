@@ -107,8 +107,10 @@ function card(s, currency) {
         ${idioMetric(s)}
       </div>
 
+      ${explainBox(s)}
+
       <details class="detail">
-        <summary>상세 정보</summary>
+        <summary>숫자로 더 자세히</summary>
         ${s.rationale ? `<p class="rationale">${s.rationale}</p>` : ""}
         <table class="facts">
           ${row("배당수익률", s.div_yield != null ? pct(s.div_yield) : null)}
@@ -133,6 +135,20 @@ function card(s, currency) {
 function metric(k, v, p, tag) {
   const pctLine = p != null ? `<div class="pct">${tag} 상위 ${Math.max(1, Math.round(100 - p))}%</div>` : "";
   return `<div class="metric"><div class="k">${k}</div><div class="v">${v}</div>${pctLine}</div>`;
+}
+
+// 초등학생도 이해하는 친절한 설명 (카드 본문에 항상 표시)
+function explainBox(s) {
+  if (!s.explain || !s.explain.length) return "";
+  const last = s.explain.length - 1;
+  const items = s.explain
+    .map((t, i) => `<li${i === last ? ' class="punch"' : ""}>${t}</li>`)
+    .join("");
+  return `
+    <div class="why">
+      <div class="why-h">🧒 왜 추천하나요? <span>쉽게 설명</span></div>
+      <ul>${items}</ul>
+    </div>`;
 }
 
 // 비체계적(고유) 과매도 — 핵심 차별 지표

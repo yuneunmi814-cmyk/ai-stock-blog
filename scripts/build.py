@@ -92,6 +92,7 @@ class Stock:
     value_score: float | None = None
     rank: int | None = None
     rationale: str = ""
+    explain: list | None = None        # 초등학생도 이해하는 친절한 설명
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -280,6 +281,36 @@ def _assign_pct(stocks: list[Stock], attr: str, higher_better: bool, out: str) -
         setattr(s, out, round(100.0 * rank / (n - 1), 1))
 
 
+def kid_explain(s: Stock, label: str, rank: int) -> list[str]:
+    """초등학교 6학년도 이해할 수 있게, 실제 숫자를 비유로 풀어 설명한다."""
+    pts: list[str] = []
+    cheap = max(1, round(100 - (s.per_pct or 0)))
+    pts.append(
+        f"💰 버는 돈에 비해 주식이 싸요. PER {s.per:.1f}배는 '이 회사가 지금처럼 벌면 약 "
+        f"{round(s.per)}년이면 회사를 산 값을 다 뽑는다'는 뜻이라, 숫자가 작을수록 싼 거예요 "
+        f"({label}에서 싼 쪽 {cheap}%)."
+    )
+    if s.pbr is not None and s.pbr < 1.2:
+        pts.append(
+            f"🏦 게다가 회사가 가진 재산(건물·현금 등)값과 비슷하거나 더 싸게 팔려요 "
+            f"(PBR {s.pbr:.2f}배 — 1배보다 작으면 재산보다도 싸다는 뜻이에요)."
+        )
+    if s.roe is not None:
+        pts.append(
+            f"🏆 그런데 장사는 야무져요. 가진 돈 100원으로 1년에 약 {round(s.roe)}원을 버는 "
+            f"똑똑한 회사거든요 (ROE {s.roe:.1f}%)."
+        )
+    if s.idio_6m is not None:
+        pts.append(
+            f"📉 그런데 최근 6개월, 주식 시장 전체와 비교하면 이 회사만 유독 뒤처졌어요 "
+            f"(시장 대비 {s.idio_6m:+.0f}%p). 반 평균은 올랐는데 이 친구 점수만 떨어진 것과 비슷해요. "
+            f"시장 전체가 나빠서가 아니라 이 회사한테만 생긴 특별한 일 때문이라, "
+            f"버는 실력은 그대론데 너무 싸진 것일 수 있어요."
+        )
+    pts.append(f"👉 한마디로 '돈은 잘 버는데 특별한 이유로 싸진 회사'라서 {rank}위로 골랐어요.")
+    return pts
+
+
 def score_market(stocks: list[Stock], label: str) -> list[Stock]:
     # 관문 ①·② 하드필터: 저평가 정상범위 + 흑자(ROE>0)
     pool = [
@@ -308,6 +339,7 @@ def score_market(stocks: list[Stock], label: str) -> list[Stock]:
             f"PER {s.per:.1f}배·PBR {s.pbr:.2f}배(저평가) · ROE {s.roe:.1f}%(재무 양호) · "
             f"{idio_txt} → {label} {len(pool)}개 중 가치점수 {s.value_score:.0f}점 ({i}위)"
         )
+        s.explain = kid_explain(s, label, i)
     return picks
 
 

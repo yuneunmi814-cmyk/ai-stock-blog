@@ -112,6 +112,29 @@ body {
 .metric .v.up { color: var(--ink-soft); }
 .metric .pct { font-size: .64rem; color: var(--value); font-weight: 600; margin-top: 1px; }
 
+/* 친절한 설명 박스 (항상 표시) */
+.why {
+  margin-top: 13px;
+  background: #f3f9f5;
+  border: 1px solid #d5ebdd;
+  border-radius: 11px;
+  padding: 12px 14px 12px;
+}
+.why-h { font-size: .82rem; font-weight: 700; color: #0d6b46; margin-bottom: 7px; }
+.why-h span {
+  font-size: .66rem; font-weight: 600; color: #fff; background: #19a36a;
+  border-radius: 999px; padding: 1px 8px; margin-left: 4px; vertical-align: 1px;
+}
+.why ul { margin: 0; padding: 0; list-style: none; }
+.why li {
+  font-size: .86rem; line-height: 1.62; color: #234; margin: 6px 0;
+  padding-left: 2px;
+}
+.why li.punch {
+  margin-top: 9px; padding-top: 9px; border-top: 1px dashed #cfe6d8;
+  font-weight: 700; color: #0d6b46;
+}
+
 /* detail */
 .detail { margin-top: 12px; }
 .detail summary {
