@@ -1,5 +1,5 @@
-# AI 섹터 저평가 종목 탐색기 — 분석 스크립트 의존성
-yfinance>=0.2.40        # Yahoo Finance(해외 종목 시세/멀티플)
-finance-datareader>=0.9.50  # KRX 공식 국내 시가총액
-requests>=2.31          # OpenDART REST API 호출
-pandas>=2.0             # 재무제표 가공
+# 저평가 Top 3 빌더 의존성 (API 키 불필요)
+yfinance>=0.2.40   # 미국(S&P 500) 펀더멘털
+pandas>=2.0        # S&P 500 구성종목 표 파싱
+lxml>=5.0          # pandas.read_html 백엔드
+requests>=2.31     # 네이버 금융(KOSPI 200) 호출

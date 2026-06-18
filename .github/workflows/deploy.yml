@@ -1,34 +1,21 @@
-name: Build & Deploy (Hugo)
+name: Build & Deploy
 
 on:
-  # 매일 07:00 KST = 22:00 UTC(전일).
-  # GitHub cron은 정시(:00,:30)에 부하가 몰려 누락이 잦음 → 오프피크(홀수) 분으로 분산 + 백업 다중화.
-  # (중복 가드 step이 있어 여러 번 떠도 하루 1개만 생성)
+  # 매 영업일 아침. 07:00 KST = 22:00 UTC(전일). 정시는 혼잡 → 분산 + 백업 1회.
   schedule:
-    - cron: "3 22 * * *"    # 07:03 KST
-    - cron: "17 22 * * *"   # 07:17 KST (백업)
-    - cron: "33 22 * * *"   # 07:33 KST (백업)
-    - cron: "47 22 * * *"   # 07:47 KST (백업)
-    - cron: "9 23 * * *"    # 08:09 KST (백업)
-  # 코드/콘텐츠 push 시 재배포
+    - cron: "5 22 * * *"    # 07:05 KST
+    - cron: "35 22 * * *"   # 07:35 KST (백업)
   push:
-    branches: [main]
+    branches: [main]        # 코드/디자인 변경 시 재배포만 (데이터 재수집 X)
   workflow_dispatch:
     inputs:
-      mode:
-        description: "분석 모드 (live: 실데이터 / sample: 표본)"
+      limit:
+        description: "시장별 종목 수 제한 (비우면 전체)"
         required: false
-        default: "live"
-        type: choice
-        options: [live, sample]
-
-# Node.js 20 액션 deprecation 대응
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-  HUGO_VERSION: "0.162.1"
+        default: ""
 
 permissions:
-  contents: write   # 생성된 리포트 커밋
+  contents: write   # 생성된 일별 JSON 커밋
   pages: write      # Pages 배포
   id-token: write   # Pages 배포 인증
 
@@ -40,10 +27,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # --- 리포트 생성: 스케줄/수동 실행 시에만 ---
       - name: Set up Python
         if: github.event_name != 'push'
         uses: actions/setup-python@v5
@@ -51,69 +36,57 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install Python deps
+      - name: Install deps
         if: github.event_name != 'push'
         run: pip install -r requirements.txt
 
-      - name: Compute report date (KST)
+      - name: Report date (KST)
         if: github.event_name != 'push'
         id: d
         run: echo "date=$(TZ=Asia/Seoul date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
 
-      # 백업 cron 중복 방지: 스케줄 실행인데 오늘 리포트가 이미 있으면 생성 생략
-      - name: Check existing report
-        if: github.event_name != 'push'
+      # 백업 cron 중복 방지: 스케줄 실행인데 오늘 파일이 이미 있으면 생성 생략
+      - name: Skip if already built
+        if: github.event_name == 'schedule'
         id: chk
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ] && \
-             [ -f "content/posts/${{ steps.d.outputs.date }}-daily-ai-top3.md" ]; then
-            echo "오늘(${{ steps.d.outputs.date }}) 리포트 이미 존재 — 생성 생략(백업 cron)"
+          if [ -f "data/${{ steps.d.outputs.date }}.json" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Generate report
+      - name: Build report
         if: github.event_name != 'push' && steps.chk.outputs.skip != 'true'
-        env:
-          DART_API_KEY: ${{ secrets.DART_API_KEY }}
-          KRX_API_KEY: ${{ secrets.KRX_API_KEY }}
         run: |
-          python scripts/analyze_stock.py \
-            --mode "${{ github.event.inputs.mode || 'live' }}" \
-            --date "${{ steps.d.outputs.date }}"
+          LIM="${{ github.event.inputs.limit }}"
+          python scripts/build.py --date "${{ steps.d.outputs.date }}" ${LIM:+--limit $LIM}
 
-      - name: Commit new report
+      - name: Commit data
         if: github.event_name != 'push' && steps.chk.outputs.skip != 'true'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "content/posts/${{ steps.d.outputs.date }}-daily-ai-top3.md" static/data/latest.json static/data/history.json
+          git add data/
           if git diff --staged --quiet; then
-            echo "변경 사항 없음 — 커밋 생략"
+            echo "변경 없음 — 커밋 생략"
           else
-            git commit -m "report: ${{ steps.d.outputs.date }} 오늘의 AI 저평가 Top 3"
+            git commit -m "data: ${{ steps.d.outputs.date }} 저평가 Top 3"
             git push
           fi
 
-      # --- Hugo 빌드 (공식 .deb 직접 설치 — 서드파티 액션 미사용) ---
-      - name: Install Hugo
+      - name: Assemble site
         run: |
-          wget -q -O hugo.deb \
-            "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb"
-          sudo dpkg -i hugo.deb
-          hugo version
+          rm -rf _site && mkdir _site
+          cp index.html _site/
+          cp -r assets _site/
+          cp -r data _site/
+          touch _site/.nojekyll
 
-      - name: Build site
-        run: hugo --minify --gc
-
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
         with:
-          path: ./public
+          path: ./_site
 
   deploy:
     needs: build
@@ -122,6 +95,5 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
+      - id: deployment
         uses: actions/deploy-pages@v4

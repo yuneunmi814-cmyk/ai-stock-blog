@@ -1,7 +1,5 @@
-# Hugo
-/public/
-/resources/_gen/
-.hugo_build.lock
+# Build output (assembled by CI)
+/_site/
 
 # Python
 __pycache__/
@@ -11,4 +9,6 @@ venv/
 
 # OS
 .DS_Store
+
+# Local preview helper
 .claude/
