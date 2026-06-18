@@ -90,9 +90,6 @@ class Stock:
     roe_pct: float | None = None
     idio_pct: float | None = None
     value_score: float | None = None
-    rank: int | None = None
-    rationale: str = ""
-    explain: list | None = None        # 초등학생도 이해하는 친절한 설명
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -173,6 +170,33 @@ def kospi200_universe(session: requests.Session) -> list[str]:
             seen.add(c)
             codes.append(c)
     return codes
+
+
+def kospi_industry_map(session: requests.Session) -> dict[str, str]:
+    """네이버 업종 그룹에서 (종목코드 → 한글 업종명) 맵을 만든다."""
+    base = "https://finance.naver.com/sise/sise_group"
+    try:
+        html = session.get(base + ".naver?type=upjong", timeout=20).content.decode("euc-kr", "ignore")
+    except Exception:
+        return {}
+    name_by_no = {
+        no: nm.strip()
+        for no, nm in re.findall(r'sise_group_detail\.naver\?type=upjong&no=(\d+)">([^<]+)</a>', html)
+    }
+
+    def members(no: str) -> tuple[str, list[str]]:
+        try:
+            d = session.get(base + f"_detail.naver?type=upjong&no={no}", timeout=20).content.decode("euc-kr", "ignore")
+            return no, re.findall(r"/item/main\.naver\?code=(\d{6})", d)
+        except Exception:
+            return no, []
+
+    code2ind: dict[str, str] = {}
+    with ThreadPoolExecutor(max_workers=12) as ex:
+        for no, codes in ex.map(members, list(name_by_no)):
+            for c in set(codes):
+                code2ind.setdefault(c, name_by_no[no])
+    return code2ind
 
 
 def fetch_kr(code: str, session: requests.Session) -> Stock | None:
@@ -281,38 +305,8 @@ def _assign_pct(stocks: list[Stock], attr: str, higher_better: bool, out: str) -
         setattr(s, out, round(100.0 * rank / (n - 1), 1))
 
 
-def kid_explain(s: Stock, label: str, rank: int) -> list[str]:
-    """초등학교 6학년도 이해할 수 있게, 실제 숫자를 비유로 풀어 설명한다."""
-    pts: list[str] = []
-    cheap = max(1, round(100 - (s.per_pct or 0)))
-    pts.append(
-        f"💰 버는 돈에 비해 주식이 싸요. PER {s.per:.1f}배는 '이 회사가 지금처럼 벌면 약 "
-        f"{round(s.per)}년이면 회사를 산 값을 다 뽑는다'는 뜻이라, 숫자가 작을수록 싼 거예요 "
-        f"({label}에서 싼 쪽 {cheap}%)."
-    )
-    if s.pbr is not None and s.pbr < 1.2:
-        pts.append(
-            f"🏦 게다가 회사가 가진 재산(건물·현금 등)값과 비슷하거나 더 싸게 팔려요 "
-            f"(PBR {s.pbr:.2f}배 — 1배보다 작으면 재산보다도 싸다는 뜻이에요)."
-        )
-    if s.roe is not None:
-        pts.append(
-            f"🏆 그런데 장사는 야무져요. 가진 돈 100원으로 1년에 약 {round(s.roe)}원을 버는 "
-            f"똑똑한 회사거든요 (ROE {s.roe:.1f}%)."
-        )
-    if s.idio_6m is not None:
-        pts.append(
-            f"📉 그런데 최근 6개월, 주식 시장 전체와 비교하면 이 회사만 유독 뒤처졌어요 "
-            f"(시장 대비 {s.idio_6m:+.0f}%p). 반 평균은 올랐는데 이 친구 점수만 떨어진 것과 비슷해요. "
-            f"시장 전체가 나빠서가 아니라 이 회사한테만 생긴 특별한 일 때문이라, "
-            f"버는 실력은 그대론데 너무 싸진 것일 수 있어요."
-        )
-    pts.append(f"👉 한마디로 '돈은 잘 버는데 특별한 이유로 싸진 회사'라서 {rank}위로 골랐어요.")
-    return pts
-
-
-def score_market(stocks: list[Stock], label: str) -> list[Stock]:
-    # 관문 ①·② 하드필터: 저평가 정상범위 + 흑자(ROE>0)
+def score_market(stocks: list[Stock]) -> list[Stock]:
+    """관문 ①·② 하드필터 → 4지표 백분위 → 가치점수. 점수 내림차순 전체 풀 반환."""
     pool = [
         s for s in stocks
         if s.per is not None and PER_RANGE[0] < s.per <= PER_RANGE[1]
@@ -330,17 +324,7 @@ def score_market(stocks: list[Stock], label: str) -> list[Stock]:
             + W_ROE * pp(s.roe_pct) + W_IDIO * pp(s.idio_pct), 1
         )
     pool.sort(key=lambda s: s.value_score or 0, reverse=True)
-    picks = pool[:TOP_N]
-    for i, s in enumerate(picks, 1):
-        s.rank = i
-        idio_txt = (f"시장대비 {s.idio_6m:+.0f}%p 과매도(β {s.beta})"
-                    if s.idio_6m is not None else "비체계적 신호 없음")
-        s.rationale = (
-            f"PER {s.per:.1f}배·PBR {s.pbr:.2f}배(저평가) · ROE {s.roe:.1f}%(재무 양호) · "
-            f"{idio_txt} → {label} {len(pool)}개 중 가치점수 {s.value_score:.0f}점 ({i}위)"
-        )
-        s.explain = kid_explain(s, label, i)
-    return picks
+    return pool
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -381,6 +365,10 @@ def build(date_str: str, limit: int | None) -> None:
                 kr_stocks.append(r)
     print(f"  펀더멘털 {len(kr_stocks)}/{len(kr_codes)} · 가격이력 회귀…", flush=True)
     add_idiosyncratic(kr_stocks, "^KS11", suffix=".KS")
+    print("  업종 태그 매핑(네이버 업종)…", flush=True)
+    ind_map = kospi_industry_map(session)
+    for s in kr_stocks:
+        s.sector = ind_map.get(s.ticker, "")
     markets["kospi200"] = _market("KOSPI 200", "🇰🇷", "KRW", len(kr_codes), kr_stocks)
 
     payload = {
@@ -403,16 +391,19 @@ def build(date_str: str, limit: int | None) -> None:
     }
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     out_path = DATA_DIR / f"{date_str}.json"
-    out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    out_path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"✓ 저장: {out_path.relative_to(ROOT)}")
     _update_index()
 
 
 def _market(label, flag, currency, universe, stocks) -> dict:
+    pool = score_market(stocks)
+    sectors = sorted({s.sector for s in pool if s.sector})
     return {
         "label": label, "flag": flag, "currency": currency,
-        "universe": universe, "scored": len(stocks),
-        "picks": [_export(s) for s in score_market(stocks, label)],
+        "universe": universe, "scored": len(pool),
+        "sectors": sectors,
+        "stocks": [_export(s) for s in pool],
     }
 
 
