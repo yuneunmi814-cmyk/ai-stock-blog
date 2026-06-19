@@ -70,6 +70,17 @@ KR_AI_INDUSTRIES = {
 HIST_PERIOD = "6mo"       # 위험분해 회귀 구간
 TOP_N = 3
 
+# AI 헤지 바스켓: AI(반도체 SMH)와 반대로/무관하게 움직이는 자산군 (참고용, 종목추천 아님)
+AI_PROXY = "SMH"          # 반도체 ETF = AI 대표
+HEDGE_BASKET = [
+    ("XLE", "에너지", "유가·경기로 움직이는 가치 섹터 — 성장주 AI와 역방향 로테이션"),
+    ("XLP", "필수소비재", "음식료·생필품 — 경기·AI와 무관하게 팔리는 방어주"),
+    ("XLU", "유틸리티", "전기·가스 저변동 방어주 (일부는 AI 데이터센터 전력 수혜로 동조)"),
+    ("XLV", "헬스케어", "제약·의료 — 경기 영향이 적은 방어주"),
+    ("GLD", "금", "위험자산과 반대로 움직이는 대표 안전자산"),
+    ("TLT", "미국 장기국채", "위험회피 국면에 돈이 몰리는 안전자산"),
+]
+
 
 @dataclass
 class Stock:
@@ -291,6 +302,45 @@ def add_idiosyncratic(stocks: list[Stock], index_ticker: str, suffix: str) -> No
 
 
 # ════════════════════════════════════════════════════════════════════════
+#  AI 헤지 바스켓 — AI(반도체)와의 6개월 상관계수
+# ════════════════════════════════════════════════════════════════════════
+def build_hedge() -> dict | None:
+    """AI(SMH)와 반대로/무관하게 움직이는 자산군의 상관계수·수익률을 계산."""
+    import yfinance as yf
+
+    tickers = [AI_PROXY] + [t for t, _, _ in HEDGE_BASKET]
+    try:
+        px = yf.download(tickers, period=HIST_PERIOD, interval="1d",
+                         progress=False, auto_adjust=True)["Close"]
+    except Exception as e:
+        print(f"  ! 헤지 바스켓 수집 실패: {e}")
+        return None
+    if AI_PROXY not in px:
+        return None
+    r = px.pct_change().dropna(how="all")
+
+    def total(t):
+        s = px[t].dropna()
+        return round((s.iloc[-1] / s.iloc[0] - 1) * 100, 1) if len(s) > 1 else None
+
+    items = []
+    for t, name, desc in HEDGE_BASKET:
+        if t not in px or px[t].dropna().shape[0] < 40:
+            continue
+        pair = r[[t, AI_PROXY]].dropna()
+        items.append({
+            "ticker": t, "name": name, "desc": desc,
+            "corr": round(float(pair[t].corr(pair[AI_PROXY])), 2),
+            "ret_6m": total(t),
+            "price": round(float(px[t].dropna().iloc[-1]), 2),
+        })
+    items.sort(key=lambda x: x["corr"])   # 가장 반비례인 것부터
+    print(f"  헤지 바스켓 {len(items)}종 계산")
+    return {"proxy": "SMH (반도체 ETF)", "proxy_ret": total(AI_PROXY),
+            "period": "최근 6개월", "items": items}
+
+
+# ════════════════════════════════════════════════════════════════════════
 #  점수
 # ════════════════════════════════════════════════════════════════════════
 def _clean(v) -> float | None:
@@ -409,6 +459,10 @@ def build(date_str: str, limit: int | None) -> None:
     add_idiosyncratic(kr_stocks, "^KS11", suffix=".KS")
     markets["kospi200"] = _market("KOSPI 200", "KRW", len(ai_codes), kr_stocks)
 
+    # ── AI 헤지 바스켓 ──
+    print("· AI 헤지 바스켓 계산…", flush=True)
+    hedge = build_hedge()
+
     payload = {
         "date": date_str,
         "generated_at": datetime.now(KST).strftime("%Y-%m-%d %H:%M KST"),
@@ -429,6 +483,8 @@ def build(date_str: str, limit: int | None) -> None:
         },
         "markets": markets,
     }
+    if hedge:
+        payload["hedge"] = hedge
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     out_path = DATA_DIR / f"{date_str}.json"
     out_path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

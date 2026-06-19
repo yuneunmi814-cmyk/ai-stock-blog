@@ -56,7 +56,8 @@ function render(data) {
 
   const order = ["sp500", "kospi200"].filter((k) => data.markets && data.markets[k]);
   $("#content").innerHTML =
-    `<div class="markets">` + order.map((k) => marketShell(k, data.markets[k])).join("") + `</div>`;
+    `<div class="markets">` + order.map((k) => marketShell(k, data.markets[k])).join("") + `</div>` +
+    hedgeSection(data.hedge);
 
   order.forEach((k) => {
     const selEl = document.querySelector(`.sect-filter[data-key="${k}"]`);
@@ -65,6 +66,36 @@ function render(data) {
   });
 
   renderMethod(data.methodology);
+}
+
+// AI 헤지 바스켓 — AI(반도체)와 반대로/무관하게 움직이는 자산군
+function hedgeSection(h) {
+  if (!h || !h.items || !h.items.length) return "";
+  const cards = h.items.map((it) => {
+    const neg = it.corr <= 0;
+    const corrTxt = (it.corr > 0 ? "+" : "") + it.corr.toFixed(2);
+    const ret = it.ret_6m != null ? (it.ret_6m > 0 ? "+" : "") + num(it.ret_6m, 1) + "%" : "—";
+    return `
+      <div class="hedge-card">
+        <div class="hedge-top">
+          <span class="hname">${it.name}<span class="ticker">${it.ticker}</span></span>
+          <span class="corr ${neg ? "neg" : "pos"}">AI 상관 ${corrTxt}</span>
+        </div>
+        <div class="hedge-ret">최근 6개월 ${ret}</div>
+        <div class="hedge-desc">${it.desc}</div>
+      </div>`;
+  }).join("");
+  return `
+    <section class="hedge">
+      <div class="market-head">
+        <h2>AI 헤지 바스켓</h2>
+        <span class="count">${h.proxy} 대비 · ${h.period}</span>
+      </div>
+      <p class="hedge-note">AI(반도체)와 <b>반대로 또는 무관하게</b> 움직여 분산에 쓰이는 자산군입니다.
+        상관계수가 낮을수록(음수일수록) 헤지 효과가 큽니다. 개별 종목 추천이 아니라 참고용 자산군이에요.</p>
+      <div class="hedge-grid">${cards}</div>
+      <p class="hedge-foot">한국에서 비슷한 성격: KT&amp;G·오리온(필수소비재), 한국가스공사(유틸리티), S-Oil·SK이노베이션(에너지), KODEX 골드선물(금).</p>
+    </section>`;
 }
 
 function marketShell(key, m) {

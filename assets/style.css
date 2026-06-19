@@ -135,6 +135,23 @@ body {
 .metric .v.up { color: var(--ink-soft); }
 .metric .pct { font-size: .64rem; color: var(--value); font-weight: 600; margin-top: 1px; }
 
+/* AI 헤지 바스켓 */
+.hedge { margin-top: 34px; }
+.hedge-note { font-size: .88rem; color: var(--ink-soft); margin: 0 0 14px; line-height: 1.55; }
+.hedge-note b { color: var(--brand); }
+.hedge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 760px) { .hedge-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 440px) { .hedge-grid { grid-template-columns: 1fr; } }
+.hedge-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; }
+.hedge-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.hname { font-weight: 700; font-size: 1.02rem; }
+.corr { flex: none; font-size: .72rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.corr.neg { background: #e7f0ff; color: var(--brand); }
+.corr.pos { background: #f1f3f8; color: var(--ink-soft); }
+.hedge-ret { font-size: .82rem; color: var(--ink-soft); margin-top: 6px; }
+.hedge-desc { font-size: .82rem; color: var(--ink); margin-top: 9px; line-height: 1.5; }
+.hedge-foot { font-size: .78rem; color: var(--ink-soft); margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+
 /* detail */
 .detail { margin-top: 12px; }
 .detail summary {
